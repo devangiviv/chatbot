@@ -21,7 +21,7 @@ class Chatbot:
     # `moviebot` is the default chatbot. Change it to your chatbot's name       #
     #############################################################################
     def __init__(self, is_turbo=False):
-      self.name = 'moviebot'
+      self.name = 'Meera and Devangi\'s MovieBot'
       self.is_turbo = is_turbo
       self.read_data()
 
@@ -32,10 +32,10 @@ class Chatbot:
     def greeting(self):
       """chatbot greeting message"""
       #############################################################################
-      # TODO: Write a short greeting message                                      #
+      # Write a short greeting message                                      #
       #############################################################################
 
-      greeting_message = 'How can I help you?'
+      greeting_message = 'Hey there - it\'s nice to meet you! My name is Daniel, but you can call me Dan :) What is your name?'
 
       #############################################################################
       #                             END OF YOUR CODE                              #
@@ -46,10 +46,10 @@ class Chatbot:
     def goodbye(self):
       """chatbot goodbye message"""
       #############################################################################
-      # TODO: Write a short farewell message                                      #
+      # Write a short farewell message                                      #
       #############################################################################
 
-      goodbye_message = 'Have a nice day!'
+      goodbye_message = 'Great chatting with you - enjoy your movie!'
 
       #############################################################################
       #                             END OF YOUR CODE                              #
@@ -97,7 +97,8 @@ class Chatbot:
 
     def binarize(self):
       """Modifies the ratings matrix to make all of the ratings binary"""
-
+      # Idea: +1 if the rating is > 2.5, -1 if it is <= 2.5, and 0 if it is not rated - DV
+      # I don't think unrated movies are listed in ratings.txt
       pass
 
 
@@ -105,7 +106,7 @@ class Chatbot:
       """Calculates a given distance function between vectors u and v"""
       # TODO: Implement the distance function between vectors u and v]
       # Note: you can also think of this as computing a similarity measure
-
+      #Idea: cosine similarity? -DV
       pass
 
 
