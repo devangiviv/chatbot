@@ -16,7 +16,6 @@ from random import randint
 
 class Chatbot:
     """Simple class to implement the chatbot for PA 6."""
-
     #############################################################################
     # `moviebot` is the default chatbot. Change it to your chatbot's name       #
     #############################################################################
@@ -73,14 +72,37 @@ class Chatbot:
       # calling other functions. Although modular code is not graded, it is       #
       # highly recommended                                                        #
       #############################################################################
+      response = ''
       if self.is_turbo == True:
         response = 'processed %s in creative mode!!' % input
       else:
-        response = 'processed %s in starter mode' % input
+        #response = 'processed %s in starter mode' % input
+        #response = ''
 
+        score = self.calcSentimentScore(input)
+        #response = ' '.join(input.split())
+        response = "this is score %d" % score
       return response
 
+    def removePunct(self, input):
+        #TODO: add stemming
+        input = input.lower()
+        punc = ['.', ',', ';', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')']
+        for p in punc:
+          input = input.replace(p, '')
+        return input
 
+    def calcSentimentScore(self, input):
+      #TODO: implement negations
+      score = 0
+      input = self.removePunct(input)
+      for word in input.split():
+        if word in self.sentiment:
+          if self.sentiment[word] == 'neg':
+              score -= 1
+          elif self.sentiment[word] == 'pos':
+              score += 1
+      return score
     #############################################################################
     # 3. Movie Recommendation helper functions                                  #
     #############################################################################
@@ -93,13 +115,22 @@ class Chatbot:
       self.titles, self.ratings = ratings()
       reader = csv.reader(open('data/sentiment.txt', 'rb'))
       self.sentiment = dict(reader)
-
+      self.sentiment['beautiful'] = 'pos'
+      self.sentiment['fun'] = 'pos'
+      self.sentiment['cool'] = 'pos'
 
     def binarize(self):
       """Modifies the ratings matrix to make all of the ratings binary"""
       # Idea: +1 if the rating is > 2.5, -1 if it is <= 2.5, and 0 if it is not rated - DV
-      # I don't think unrated movies are listed in ratings.txt
-      pass
+      rows = self.ratings.shape[0]
+      cols = self.ratings.shape[1]
+      for i in range(rows):
+          for j in range(cols):
+              if self.ratings[i][j] >= 0.5 and self.ratings[i][j] <= 2.5:
+                  self.ratings[i][j] = -1
+              elif self.ratings[i][j] > 2.5:
+                  self.ratings[i][j] = 1
+      return self.ratings
 
 
     def distance(self, u, v):
@@ -127,7 +158,7 @@ class Chatbot:
       """Returns debug information as a string for the input string from the REPL"""
       # Pass the debug information that you may think is important for your
       # evaluators
-      debug_info = 'debug info'
+      debug_info = self.binarize()
       return debug_info
 
 
@@ -141,7 +172,6 @@ class Chatbot:
       expressions of sentiment will be simple!
       Write here the description for your own chatbot!
       """
-
 
     #############################################################################
     # Auxiliary methods for the chatbot.                                        #
