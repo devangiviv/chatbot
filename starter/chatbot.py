@@ -13,6 +13,7 @@ import numpy as np
 
 from movielens import ratings
 from random import randint
+import portersalg as pa
 
 class Chatbot:
     """Simple class to implement the chatbot for PA 6."""
@@ -20,7 +21,7 @@ class Chatbot:
     # `moviebot` is the default chatbot. Change it to your chatbot's name       #
     #############################################################################
     def __init__(self, is_turbo=False):
-      self.name = 'Meera and Devangi\'s MovieBot'
+      self.name = 'Dan'
       self.is_turbo = is_turbo
       self.read_data()
 
@@ -79,30 +80,38 @@ class Chatbot:
         #response = 'processed %s in starter mode' % input
         #response = ''
 
-        score = self.calcSentimentScore(input)
+        score, stemmed_input = self.calcSentimentScore(input)
         #response = ' '.join(input.split())
-        response = "this is score %d" % score
+        response = "The score is %d, The stemmed input is %s" % (score, stemmed_input)
       return response
 
-    def removePunct(self, input):
-        #TODO: add stemming
+    def remove_punct(self, input):
         input = input.lower()
-        punc = ['.', ',', ';', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')']
+        punc = ['.', ',', ';', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')', '\'']
         for p in punc:
-          input = input.replace(p, '')
+          input = input.replace(p, ' ')
         return input
 
     def calcSentimentScore(self, input):
-      #TODO: implement negations
+      #TODO: implement negation, better metrics
       score = 0
-      input = self.removePunct(input)
+      input = self.remove_punct(input)
+      sentence = ''
       for word in input.split():
-        if word in self.sentiment:
-          if self.sentiment[word] == 'neg':
+        w = word[:]
+        w = w.strip()
+        #if the word is not in our sentiment dictionary, try using the stemmed version
+        if w not in self.sentiment:
+          p = pa.PorterStemmer()
+          w = p.returnStemmedWord(w)
+        sentence += w
+        sentence += ' '
+        if w in self.sentiment:
+          if self.sentiment[w] == 'neg':
               score -= 1
-          elif self.sentiment[word] == 'pos':
+          elif self.sentiment[w] == 'pos':
               score += 1
-      return score
+      return score, sentence
     #############################################################################
     # 3. Movie Recommendation helper functions                                  #
     #############################################################################
@@ -118,10 +127,12 @@ class Chatbot:
       self.sentiment['beautiful'] = 'pos'
       self.sentiment['fun'] = 'pos'
       self.sentiment['cool'] = 'pos'
+      self.sentiment['beautiful'] = 'pos'
 
     def binarize(self):
       """Modifies the ratings matrix to make all of the ratings binary"""
       # Idea: +1 if the rating is > 2.5, -1 if it is <= 2.5, and 0 if it is not rated - DV
+      #TODO: Can also try using each movie's average rating as its threshold
       rows = self.ratings.shape[0]
       cols = self.ratings.shape[1]
       for i in range(rows):
@@ -135,16 +146,25 @@ class Chatbot:
 
     def distance(self, u, v):
       """Calculates a given distance function between vectors u and v"""
-      # TODO: Implement the distance function between vectors u and v]
+      # TIplement the distance function between vectors u and v]
       # Note: you can also think of this as computing a similarity measure
       #Idea: cosine similarity? -DV
-      pass
+      dot = np.dot(u, v) + 0.0
+      u_norm = 0
+      v_norm = 0
+      for x in u:
+          u_norm += x**2
+      for y in v:
+          u_norm += y**2
+      u_norm = math.sqrt(u_norm)
+      v_norm = math.squrt(v_norm)
+      return dot / (u_norm * v_norm)
 
 
     def recommend(self, u):
       """Generates a list of movies based on the input vector u using
       collaborative filtering"""
-      # TODO: Implement a recommendation function that takes a user vector u
+      # Implement a recommendation function that takes a user vector u
       # and outputs a list of movies recommended by the chatbot
 
       pass
