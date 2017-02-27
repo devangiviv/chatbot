@@ -102,20 +102,20 @@ class Chatbot:
     ########EXTRACT CODE################
     ###TODO: edge cases - Motorcycle diaries, Man with one red shoe, string II, Cutting edge: the mahic of mvie editing
     ###TODO: Handle cases with years in movie title
-    ###TODO: extract sentiment words and return string 
+    ###TODO: extract sentiment words and return string
 
     def extractTitlesStarterBot(self, input):
         movieTitlePattern  =  '"(.*?)"'
-        matches = re.findall(movieTitlePattern, input)    
-        if len(matches) > 1: #account for entering user input as quotes 
+        matches = re.findall(movieTitlePattern, input)
+        if len(matches) > 1: #account for entering user input as quotes
           #self.repromptUserForTitle()
           return "Invalid input"
         else:
           prep = ['The', 'A', 'An']
           input = matches[0]
           modInput = input.strip().split()[0]
-          addPrepResult = self.addPrep(input.strip()) 
-          
+          addPrepResult = self.addPrep(input.strip())
+
           if input.strip() in self.getTitlesStarterBot():
             return input
           elif modInput in prep:
@@ -123,23 +123,23 @@ class Chatbot:
             if movieMod.strip() in self.getTitlesStarterBot():
               return movieMod.strip()
           elif addPrepResult[0] in self.getTitlesStarterBot():
-            return addPrepResult[0] 
-        
-        return "Invalid input"                
+            return addPrepResult[0]
+
+        return "Invalid input"
 
     def getTitlesStarterBot(self):
         myTitles = []
         for title in self.titles:
           myTitles.append(title[0])
-        return myTitles;    
+        return myTitles;
     def repromptUserForTitle(self):
         pass
-    #check first element of list because dictionary contains titles as title, genre     
-    #return a tuple -- first element is list, second element is words without movie for sentiment score 
-    
+    #check first element of list because dictionary contains titles as title, genre
+    #return a tuple -- first element is list, second element is words without movie for sentiment score
+
     def extractTitles(self, input):
         self.debug == True
-        
+
         prePrep = ['the', 'a', 'an']
         postPrep = [', the', ', a', ', an']
         lowerInput = input.lower()
@@ -155,9 +155,9 @@ class Chatbot:
           #if lowerTitle[0: (len(lowerTitle) - len(postTitlePrep)) + postTitlePrep is lowerTitle:
           #  return title
           if i4 >=0 and input[i4].isupper():
-            return "in i4" 
+            return "in i4"
           i1 = lowerInput.find(lowerTitle)
-          if i1 >=0 and input[i1].isupper():            
+          if i1 >=0 and input[i1].isupper():
             return "in i1"
           i2 = -1
           if preTitlePrep in prePrep:
@@ -166,25 +166,25 @@ class Chatbot:
           if i2 >=0 and input[i2].isupper():
             return "in i2"
           i3 = -1
-          #for situations where user provides article (capitalized) but movie title does not begin with article           
+          #for situations where user provides article (capitalized) but movie title does not begin with article
           for word in prePrep:
             newTitle = word + " " + lowerTitle
             i3  = lowerInput.find(newTitle)
             if i3 >= 0 and input[i3].isupper():
               return "in i3"
-          #for situations where movie title ends with article but user doesn't provide article, e.g. "Beautiful Mind, A" 
+          #for situations where movie title ends with article but user doesn't provide article, e.g. "Beautiful Mind, A"
           #'''
-          
+
           #'''
-          #for situations where movie title does    
-        #in case titles are provided with the year 
+          #for situations where movie title does
+        #in case titles are provided with the year
         #for title in self.getTitlesStarterBot():
-        
-        return "No title found" 
-    
-    
+
+        return "No title found"
+
+
     def getTitles(self):
-        self.debug == True 
+        self.debug == True
         myTitles = []
         prep = ['The', 'A', 'An']
         pattern = '(.*?)(\([1-3][0-9][0-9][0-9]\))$'
@@ -195,31 +195,31 @@ class Chatbot:
             titleFinal = movieYears[0][0]
             myTitles.append(titleFinal.strip())
         return myTitles
-    
-    #gets input from extractTitles    
+
+    #gets input from extractTitles
     def checkValidMov(self, input):
         #self.debug == True
-        #add lowercase comparison 
+        #add lowercase comparison
         myTitles = self.getTitles()
         prep = ['The', 'A', 'An']
         modInput = input.strip().split()[0]
-        addPrepResult = self.addPrep(input.strip()) 
+        addPrepResult = self.addPrep(input.strip())
         if input.strip() in myTitles:
           return (True, input.strip())
-        
-        
+
+
         elif modInput in prep:
           movieMod = (input[len(modInput):]).strip()
           if movieMod.strip() in myTitles:
             return (True, movieMod.strip())
         elif addPrepResult[0]:
           return (True, addPrepResult[1])
-        
-        return (False, "Invalid input")                
-    
-    def addPrep(self, input): 
-        myTitles = self.getTitles() 
-        prep = ['The', 'A', 'An'] 
+
+        return (False, "Invalid input")
+
+    def addPrep(self, input):
+        myTitles = self.getTitles()
+        prep = ['The', 'A', 'An']
         modInput = ""
         modInputs = []
         for word in prep:
@@ -286,9 +286,18 @@ class Chatbot:
     def calcSentimentScore(self, input):
       #TODO: better metrics - emphasis if line contains many !!! or reaaallyyy
       score = 0
+      intensifiers = ['realli', 'veri', 'truli', 'extrem', 'so', 'soo', 'quite']
+      strong_pos = ['love', 'favorite', 'best', 'amazing']
+      strong_neg = ['hate', 'worst', 'disgust']
+      boost_tot = 1
+      boost = 1
+
+      #normalize input
       input = self.remove_punct(input)
       sentence = ''
       split_input = input.split()
+
+      #LOOP through each word
       for i in range(len(split_input)):
         w = split_input[i]
         prev = ''
@@ -296,6 +305,11 @@ class Chatbot:
             prev = split_input[i-1]
         w = w.strip()
         prev = prev.strip()
+
+        #calculate internsifiers and boosts - pre-stemming cases
+        if w == 'reeeeeally':
+            boost_tot += boost
+
         #if the word is not in our sentiment dictionary, try using the stemmed version
         if w not in self.sentiment:
           p = pa.PorterStemmer()
@@ -310,6 +324,9 @@ class Chatbot:
               if prev == 'not' or prev[-2:] == 'nt' or prev == 'never':
                   score += 1
               else:
+                  if prev == 'pretty': #pretty bad
+                      score -= 1
+                  #below regex is to turn things like didn't really hate into positive
                   regex = '((?:i.*?(?:nt|not|never)))(?:.*?)(?:' + w + ').*?'
                   regex_result = re.findall(regex, input)
                   if len(regex_result) > 0:
@@ -326,6 +343,14 @@ class Chatbot:
                       score -= 1
                   else:
                       score += 1
+        #calculate boosts - adds extra weight to intensifiers and strong pos/neg words
+        if w in intensifiers:
+            boost_tot += boost
+        if w in strong_pos:
+            boost_tot += boost
+        if w in strong_neg:
+            boost_tot += boost
+      score *= boost_tot
       return score, sentence
     #############################################################################
     # 3. Movie Recommendation helper functions                                  #
