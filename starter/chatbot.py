@@ -93,11 +93,143 @@ class Chatbot:
       else:
         #response = 'processed %s in starter mode' % input
         #response = ''
-
+        response1 = self.extractTitles(input)
         score, stemmed_input = self.calcSentimentScore(input)
         #response = ' '.join(input.split())
-        response = "The score is %d, The stemmed input is %s" % (score, stemmed_input)
+        response = "The score is %d, The stemmed input is %s, The extracted title is %s" % (score, stemmed_input, response1)
       return response
+
+    ########EXTRACT CODE################
+    ###TODO: edge cases - Motorcycle diaries, Man with one red shoe, string II, Cutting edge: the mahic of mvie editing
+    ###TODO: Handle cases with years in movie title
+    ###TODO: extract sentiment words and return string 
+
+    def extractTitlesStarterBot(self, input):
+        movieTitlePattern  =  '"(.*?)"'
+        matches = re.findall(movieTitlePattern, input)    
+        if len(matches) > 1: #account for entering user input as quotes 
+          #self.repromptUserForTitle()
+          return "Invalid input"
+        else:
+          prep = ['The', 'A', 'An']
+          input = matches[0]
+          modInput = input.strip().split()[0]
+          addPrepResult = self.addPrep(input.strip()) 
+          
+          if input.strip() in self.getTitlesStarterBot():
+            return input
+          elif modInput in prep:
+            movieMod = (input[len(modInput):]).strip()
+            if movieMod.strip() in self.getTitlesStarterBot():
+              return movieMod.strip()
+          elif addPrepResult[0] in self.getTitlesStarterBot():
+            return addPrepResult[0] 
+        
+        return "Invalid input"                
+
+    def getTitlesStarterBot(self):
+        myTitles = []
+        for title in self.titles:
+          myTitles.append(title[0])
+        return myTitles;    
+    def repromptUserForTitle(self):
+        pass
+    #check first element of list because dictionary contains titles as title, genre     
+    #return a tuple -- first element is list, second element is words without movie for sentiment score 
+    
+    def extractTitles(self, input):
+        self.debug == True
+        
+        prePrep = ['the', 'a', 'an']
+        postPrep = [', the', ', a', ', an']
+        lowerInput = input.lower()
+        for title in self.getTitles():
+          lowerTitle = title.lower()
+          preTitlePrep = lowerTitle.split()[0]
+          postTitlePrep = (', ' + lowerTitle.split()[-1]).strip()
+          i4 = -1
+          #i5 = -1
+          if postTitlePrep in postPrep:
+            #i5 = lowerInput.index(postTitlePrep)
+            i4 = lowerInput.find(lowerTitle[0: (len(lowerTitle) - len(postTitlePrep))].strip())
+          #if lowerTitle[0: (len(lowerTitle) - len(postTitlePrep)) + postTitlePrep is lowerTitle:
+          #  return title
+          if i4 >=0 and input[i4].isupper():
+            return "in i4" 
+          i1 = lowerInput.find(lowerTitle)
+          if i1 >=0 and input[i1].isupper():            
+            return "in i1"
+          i2 = -1
+          if preTitlePrep in prePrep:
+            i2 = lowerInput.find(lowerTitle[len(preTitlePrep):].strip())
+          #for situations where movie title begins with article, but user doesn't provide article
+          if i2 >=0 and input[i2].isupper():
+            return "in i2"
+          i3 = -1
+          #for situations where user provides article (capitalized) but movie title does not begin with article           
+          for word in prePrep:
+            newTitle = word + " " + lowerTitle
+            i3  = lowerInput.find(newTitle)
+            if i3 >= 0 and input[i3].isupper():
+              return "in i3"
+          #for situations where movie title ends with article but user doesn't provide article, e.g. "Beautiful Mind, A" 
+          #'''
+          
+          #'''
+          #for situations where movie title does    
+        #in case titles are provided with the year 
+        #for title in self.getTitlesStarterBot():
+        
+        return "No title found" 
+    
+    
+    def getTitles(self):
+        self.debug == True 
+        myTitles = []
+        prep = ['The', 'A', 'An']
+        pattern = '(.*?)(\([1-3][0-9][0-9][0-9]\))$'
+        for title in self.titles:
+          #currMov = title[0]
+          movieYears = re.findall(pattern, title[0])
+          if len(movieYears) >= 1:
+            titleFinal = movieYears[0][0]
+            myTitles.append(titleFinal.strip())
+        return myTitles
+    
+    #gets input from extractTitles    
+    def checkValidMov(self, input):
+        #self.debug == True
+        #add lowercase comparison 
+        myTitles = self.getTitles()
+        prep = ['The', 'A', 'An']
+        modInput = input.strip().split()[0]
+        addPrepResult = self.addPrep(input.strip()) 
+        if input.strip() in myTitles:
+          return (True, input.strip())
+        
+        
+        elif modInput in prep:
+          movieMod = (input[len(modInput):]).strip()
+          if movieMod.strip() in myTitles:
+            return (True, movieMod.strip())
+        elif addPrepResult[0]:
+          return (True, addPrepResult[1])
+        
+        return (False, "Invalid input")                
+    
+    def addPrep(self, input): 
+        myTitles = self.getTitles() 
+        prep = ['The', 'A', 'An'] 
+        modInput = ""
+        modInputs = []
+        for word in prep:
+          modInput = word + " " + input
+          modInputs.append(modInput)
+        for movie in modInputs:
+          if movie in myTitles:
+            return (True, movie)
+        return (False, "Invalid input")
+
 
     def a_to_r(self):
         d = {}
