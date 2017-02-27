@@ -14,6 +14,7 @@
 ######################################################################
 
 import cmd
+import os
 import argparse
 from chatbot import *
 
@@ -24,7 +25,10 @@ class REPL(cmd.Cmd):
     is_turbo = False
     chatbot = Chatbot(is_turbo)
     name = chatbot.bot_name()
-    bot_prompt = '\001\033[96m\002%s> \001\033[0m\002' % name
+    if os.name == 'nt':
+        os.system('')
+        bot_prompt = '\033[96m%s> \033[0m' % name
+    #bot_prompt = '\001\033[96m\002%s> \001\033[0m\002' % name
     prompt = '> '
     greeting = chatbot.greeting()
     intro = chatbot.intro() + '\n' + bot_prompt + greeting

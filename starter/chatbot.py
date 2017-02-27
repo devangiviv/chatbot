@@ -21,8 +21,9 @@ class Chatbot:
     # `moviebot` is the default chatbot. Change it to your chatbot's name       #
     #############################################################################
     def __init__(self, is_turbo=False):
-      self.name = 'Dan'
+      self.name = 'Hillary Rodham Clinton'
       self.is_turbo = is_turbo
+      self.user_name = ''
       self.read_data()
 
     #############################################################################
@@ -35,12 +36,21 @@ class Chatbot:
       # Write a short greeting message                                      #
       #############################################################################
 
-      greeting_message = 'Hey there - it\'s nice to meet you! My name is Daniel, but you can call me Dan :) What is your name?'
-
+      #greeting_message = 'Hey there - it\'s nice to meet you! My name is Daniel, but you can call me Dan :) What is your name?'
+      greeting_message = """My fellow American. My name is Hillary Rodham Clinton.
+      As you know, America is going through difficult times. I’m tired of hiking in the woods,
+      so I'm putting myself back out there and trying something new.
+      \n In these troubling days of unconstitutional executive orders and laughable disregard for the
+      laws and ideals of this country...I want to help you. Yes, you, my fellow American.
+      It's important to march, to protest, to call your congresspeople, to vote,
+      and to run for office. But every once in a while, we all need a break.
+      And nothing beats a good ole movie night with family and friends.
+      \n So, that's why I'm here. I've taken a break from my rigorous nap schedule to do this,
+      and I'm glad you chose me to give you some movie advice.
+      \nLet's get to know each other - what is your name?"""
       #############################################################################
       #                             END OF YOUR CODE                              #
       #############################################################################
-
       return greeting_message
 
     def goodbye(self):
@@ -93,13 +103,18 @@ class Chatbot:
         return input
 
     def calcSentimentScore(self, input):
-      #TODO: implement negation, better metrics
+      #TODO: better metrics - emphasis if line contains many !!! or reaaallyyy
       score = 0
       input = self.remove_punct(input)
       sentence = ''
-      for word in input.split():
-        w = word[:]
+      split_input = input.split()
+      for i in range(len(split_input)):
+        w = split_input[i]
+        prev = ''
+        if i is not 0:
+            prev = split_input[i-1]
         w = w.strip()
+        prev = prev.strip()
         #if the word is not in our sentiment dictionary, try using the stemmed version
         if w not in self.sentiment:
           p = pa.PorterStemmer()
@@ -108,9 +123,15 @@ class Chatbot:
         sentence += ' '
         if w in self.sentiment:
           if self.sentiment[w] == 'neg':
-              score -= 1
+              if prev == 'not':
+                  score += 1
+              else:
+                  score -= 1
           elif self.sentiment[w] == 'pos':
-              score += 1
+              if prev == 'not':
+                  score -= 1
+              else:
+                  score += 1
       return score, sentence
     #############################################################################
     # 3. Movie Recommendation helper functions                                  #
@@ -133,42 +154,61 @@ class Chatbot:
       """Modifies the ratings matrix to make all of the ratings binary"""
       # Idea: +1 if the rating is > 2.5, -1 if it is <= 2.5, and 0 if it is not rated - DV
       #TODO: Can also try using each movie's average rating as its threshold
+      threshhold = 2.5
       rows = self.ratings.shape[0]
       cols = self.ratings.shape[1]
       for i in range(rows):
           for j in range(cols):
-              if self.ratings[i][j] >= 0.5 and self.ratings[i][j] <= 2.5:
+              if self.ratings[i][j] >= 0.5 and self.ratings[i][j] <= threshold:
                   self.ratings[i][j] = -1
-              elif self.ratings[i][j] > 2.5:
+              elif self.ratings[i][j] > threshold:
                   self.ratings[i][j] = 1
       return self.ratings
 
 
     def distance(self, u, v):
       """Calculates a given distance function between vectors u and v"""
-      # TIplement the distance function between vectors u and v]
+      # Implement the distance function between vectors u and v
       # Note: you can also think of this as computing a similarity measure
       #Idea: cosine similarity? -DV
-      dot = np.dot(u, v) + 0.0
+      dot_product = np.dot(u, v) + 0.0
       u_norm = 0
       v_norm = 0
       for x in u:
           u_norm += x**2
       for y in v:
-          u_norm += y**2
+          v_norm += y**2
       u_norm = math.sqrt(u_norm)
-      v_norm = math.squrt(v_norm)
-      return dot / (u_norm * v_norm)
-
+      v_norm = math.sqrt(v_norm)
+      return dot_product / (u_norm * v_norm)
+      #if floating point, warnings, replace the above li
+      #return dot_product / (u_norm * v_norm + 1e-7)
 
     def recommend(self, u):
       """Generates a list of movies based on the input vector u using
       collaborative filtering"""
       # Implement a recommendation function that takes a user vector u
       # and outputs a list of movies recommended by the chatbot
+      #Assumes that u contains >= 5 movie titles + ratings as tuples
+      #i.e. [](movie1, rating1), (movie2, rating2) etc]
 
-      pass
+      index_of_j = [] #indices of the movies the user has commented on
+      for title, rating in u:
+          index_of_j.append(self.titles.index(title))
 
+      ri_list = [] #list of user's calculated rating for movie i
+      for i in range(len(self.titles)):
+          ri = 0 #user's calculated rating for movie i
+          movie_i = self.ratings[i] #get the row in the ratings matrix for movie i
+          for j in range(len(index_of_j)):
+              index_of_movie_j = index_of_j[j]
+              movie_j = self.ratings[index_of_movie_j]
+              s_ij = distance(movie_i, movie_j)
+              ri += s_ij * u[j][1] # s_ij * r_xj
+              ri_list.append(ri)
+      #index of first movie that has max predicted rating
+      index_of_max_rating = ri_list.index(max(ri_list))
+      return self.titles[index_of_max_rating]
 
     #############################################################################
     # 4. Debug info                                                             #
