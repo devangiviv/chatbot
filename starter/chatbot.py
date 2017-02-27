@@ -25,6 +25,10 @@ class Chatbot:
       self.is_turbo = is_turbo
       self.user_name = ''
       self.read_data()
+      self.num_to_recommend = 5
+      self.arabic_to_roman = self.a_to_r()
+      self.roman_to_arabic = self.r_to_a()
+      #self.user_movies = [] #eventually use this to refer back to movies mentioned
 
     #############################################################################
     # 1. WARM UP REPL
@@ -94,6 +98,52 @@ class Chatbot:
         #response = ' '.join(input.split())
         response = "The score is %d, The stemmed input is %s" % (score, stemmed_input)
       return response
+
+    def a_to_r(self):
+        d = {}
+        d['1'] = 'I'
+        d['2'] = 'II'
+        d['3'] = 'III'
+        d['4'] = 'IV'
+        d['5'] = 'V'
+        d['6'] = 'VI'
+        d['7'] = 'VII'
+        d['8'] = 'VIII'
+        d['9'] = 'IX'
+        d['10'] = 'X'
+        d['15'] = 'XV'
+        return d
+
+    def r_to_a(self):
+        d = {}
+        d['I'] = '1'
+        d['II'] = '2'
+        d['III'] = '3'
+        d['IV'] = '4'
+        d['V'] = '5'
+        d['VI'] = '6'
+        d['VII'] = '7'
+        d['VIII'] = '8'
+        d['IX'] = '9'
+        d['X'] = '10'
+        d['XV'] = '11'
+        d['XII'] = '12'
+        d['XIII'] = '13'
+        d['XIV'] = '14'
+        d['XX'] = '20'
+        d['XXI'] = '21'
+        d['XXIV'] = '24'
+        d['XXX'] = '30'
+        d['XXXIII'] = '33'
+        d['XLV'] = '45'
+        d['LXIX'] = '69'
+        d['XCIX'] = '99'
+        d['CC'] = '200'
+        d['M'] = '1000'
+        d['MM'] = '2000'
+        d['MMXLVI'] = '2046'
+        return d
+
 
     def remove_punct(self, input):
         input = input.lower()
@@ -184,20 +234,31 @@ class Chatbot:
       #if floating point, warnings, replace the above li
       #return dot_product / (u_norm * v_norm + 1e-7)
 
-    def recommend(self, u):
+    """Given a list of (valid movie title w/o year, input with movie title removed) tuples,
+       returns a list of (valid movie titles w/o year, sentiment ratings)"""
+    def get_sentiment_for_movies(self, t):
+        result = []
+        for movie, rest in t:
+            sentiment = calcSentimentScore(rest)
+            result.append(movie, sentiment)
+
+    def recommend(self, t):
       """Generates a list of movies based on the input vector u using
       collaborative filtering"""
       # Implement a recommendation function that takes a user vector u
       # and outputs a list of movies recommended by the chatbot
-      #Assumes that u contains >= 5 movie titles + ratings as tuples
-      #i.e. [](movie1, rating1), (movie2, rating2) etc]
+      # Assumes that t = [(movie w/o year, rest of sentence), (movie w/o year, rest of sentence), etc]
 
       index_of_j = [] #indices of the movies the user has commented on
+      titles = self.getTitles()
+
+      u = get_sentiment_for_movies(t)
+      #i.e. u = [(movie1, rating1), (movie2, rating2) etc]
       for title, rating in u:
-          index_of_j.append(self.titles.index(title))
+          index_of_j.append(titles.index(title))
 
       ri_list = [] #list of user's calculated rating for movie i
-      for i in range(len(self.titles)):
+      for i in range(len(titles)):
           ri = 0 #user's calculated rating for movie i
           movie_i = self.ratings[i] #get the row in the ratings matrix for movie i
           for j in range(len(index_of_j)):
