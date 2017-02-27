@@ -8,7 +8,7 @@
 ######################################################################
 import csv
 import math
-
+import re
 import numpy as np
 
 from movielens import ratings
@@ -41,7 +41,7 @@ class Chatbot:
       #############################################################################
 
       #greeting_message = 'Hey there - it\'s nice to meet you! My name is Daniel, but you can call me Dan :) What is your name?'
-      greeting_message = """My fellow American. My name is Hillary Rodham Clinton.
+      greeting_message = """Hello, my fellow American. My name is Hillary Rodham Clinton.
       As you know, America is going through difficult times. I’m tired of hiking in the woods,
       so I'm putting myself back out there and trying something new.
       \n In these troubling days of unconstitutional executive orders and laughable disregard for the
@@ -144,12 +144,11 @@ class Chatbot:
         d['MMXLVI'] = '2046'
         return d
 
-
     def remove_punct(self, input):
         input = input.lower()
-        punc = ['.', ',', ';', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')', '\'']
+        punc = ['.', ',', ';', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')', '\'', "\""]
         for p in punc:
-          input = input.replace(p, ' ')
+          input = input.replace(p, '')
         return input
 
     def calcSentimentScore(self, input):
@@ -169,19 +168,32 @@ class Chatbot:
         if w not in self.sentiment:
           p = pa.PorterStemmer()
           w = p.returnStemmedWord(w)
+
         sentence += w
         sentence += ' '
+        #Negation
         if w in self.sentiment:
+          regex_result = []
           if self.sentiment[w] == 'neg':
-              if prev == 'not':
+              if prev == 'not' or prev[-2:] == 'nt' or prev == 'never':
                   score += 1
               else:
-                  score -= 1
+                  regex = '((?:i.*?(?:nt|not|never)))(?:.*?)(?:' + w + ').*?'
+                  regex_result = re.findall(regex, input)
+                  if len(regex_result) > 0:
+                      score += 1
+                  else:
+                      score -= 1
           elif self.sentiment[w] == 'pos':
-              if prev == 'not':
+              if prev == 'not' or prev[-2:] == 'nt' or prev == 'never':
                   score -= 1
               else:
-                  score += 1
+                  regex = '((?:i.*?(?:nt|not|never)))(?:.*?)(?:' + w + ').*?'
+                  regex_result = re.findall(regex, input)
+                  if len(regex_result) > 0:
+                      score -= 1
+                  else:
+                      score += 1
       return score, sentence
     #############################################################################
     # 3. Movie Recommendation helper functions                                  #
@@ -198,7 +210,7 @@ class Chatbot:
       self.sentiment['beautiful'] = 'pos'
       self.sentiment['fun'] = 'pos'
       self.sentiment['cool'] = 'pos'
-      self.sentiment['beautiful'] = 'pos'
+      self.sentiment['enjoi'] = 'pos'
 
     def binarize(self):
       """Modifies the ratings matrix to make all of the ratings binary"""
