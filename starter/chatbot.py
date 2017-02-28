@@ -283,11 +283,13 @@ class Chatbot:
           input = input.replace(p, '')
         return input
 
+    """If returned score is >=2 or <= 2, it's probably a strong emotion.
+       If returned score is >=3 or <= 3, it's definitely a strong emotion."""
     def calcSentimentScore(self, input):
-      #TODO: better metrics - emphasis if line contains many !!! or reaaallyyy
+      #TODO: better metrics - emphasis if line contains many !!! or reaaallyyy (more generally)
       score = 0
       intensifiers = ['realli', 'veri', 'truli', 'extrem', 'so', 'soo', 'quite']
-      strong_pos = ['love', 'favorite', 'best', 'amazing']
+      strong_pos = ['love', 'favorite', 'best', 'amazing', 'perfect']
       strong_neg = ['hate', 'worst', 'disgust']
       boost_tot = 1
       boost = 1
@@ -391,7 +393,9 @@ class Chatbot:
       # Note: you can also think of this as computing a similarity measure
       #Idea: cosine similarity? -DV
       dot_product = np.dot(u, v) + 0.0
-      u_norm = 0
+      norm_product = np.linalg.norm(u) * np.linalg.norm(v)
+      return dot_product / norm_product
+      """u_norm = 0
       v_norm = 0
       for x in u:
           u_norm += x**2
@@ -401,7 +405,7 @@ class Chatbot:
       v_norm = math.sqrt(v_norm)
       return dot_product / (u_norm * v_norm)
       #if floating point, warnings, replace the above li
-      #return dot_product / (u_norm * v_norm + 1e-7)
+      #return dot_product / (u_norm * v_norm + 1e-7)"""
 
     """Given a list of (valid movie title w/o year, input with movie title removed) tuples,
        returns a list of (valid movie titles w/o year, sentiment ratings)"""
