@@ -22,13 +22,22 @@ class Chatbot:
     #############################################################################
     def __init__(self, is_turbo=False):
       self.name = 'Hillary Rodham Clinton'
-      self.is_turbo = is_turbo
+      self.is_turbo = True
       self.user_name = ''
       self.read_data()
       self.num_to_recommend = 5
       self.arabic_to_roman = self.a_to_r()
       self.roman_to_arabic = self.r_to_a()
-      #self.user_movies = [] #eventually use this to refer back to movies mentioned
+      self.asked_for_name = False
+      self.sassy_name_response = """Wow, so you don\'t want to tell me your name...I\'ll just call you Donald. That's what you get HA! \n \n"""
+      self.intro_cont = """Let me warn you - although I'm very focused, I can get chatty as well.
+      I'll talk to you about everything from Trump to an alternate reality in which I’m President
+      (just ask about the "alternate universe"). If you ever want to go back to talking about movie recommendations,
+      just let me know by typing "back to movies." And if you ever want to break my heartlike the Electoral College and
+      leave me, just type :quit. Here's how this works. Unlike many GOP congresspeople, I don't avoid town halls
+      and I want to hear what you have to say.
+      So, why don't you start by telling me about a movie you’ve seen and how you felt about it?\n"""
+      self.user_movies = [] #eventually use this to refer back to movies mentioned
 
     #############################################################################
     # 1. WARM UP REPL
@@ -62,7 +71,6 @@ class Chatbot:
       #############################################################################
       # Write a short farewell message                                      #
       #############################################################################
-
       goodbye_message = 'Great chatting with you - enjoy your movie!'
 
       #############################################################################
@@ -77,27 +85,39 @@ class Chatbot:
     #############################################################################
 
     def process(self, input):
-      """Takes the input string from the REPL and call delegated functions
-      that
+        """Takes the input string from the REPL and call delegated functions
+        that
         1) extract the relevant information and
         2) transform the information into a response to the user
-      """
-      #############################################################################
-      # TODO: Implement the extraction and transformation in this method, possibly#
-      # calling other functions. Although modular code is not graded, it is       #
-      # highly recommended                                                        #
-      #############################################################################
-      response = ''
-      if self.is_turbo == True:
-        response = 'processed %s in creative mode!!' % input
-      else:
-        #response = 'processed %s in starter mode' % input
-        #response = ''
-        response1 = self.extractTitles(input)
+        """
+        #############################################################################
+        # Implement the extraction and transformation in this method, possibly#
+        # calling other functions. Although modular code is not graded, it is       #
+        # highly recommended                                                        #
+        #############################################################################
+        response = ''
+        """if not self.asked_for_name:
+            self.user_name = input.strip()
+            if self.user_name == '':
+                response += self.sassy_name_response
+                self.user_name = 'Donald'
+            response += 'Hi there, ' + self.user_name + '!\n\n'
+            response += self.intro_cont
+            self.asked_for_name = True"""
+        movie_prompt = "Tell me about a movie\n"
+        title, rest_of_sentence = self.extractTitlesStarterBot(input) #returns a tuple
+        self.user_movies.append((title, rest_of_sentence))
+        if len(self.user_movies) == 5:
+            rec = self.recommend(self.user_movies)
+            response += "I recommend you " + rec + "\n" + movie_prompt
+
+
+        """
         score, stemmed_input = self.calcSentimentScore(input)
         #response = ' '.join(input.split())
         response = "The score is %d, The stemmed input is %s, The extracted title is %s" % (score, stemmed_input, response1)
-      return response
+        """
+        return response
 
     ########EXTRACT CODE################
     ###TODO: edge cases - Motorcycle diaries, Man with one red shoe, string II, Cutting edge: the mahic of mvie editing
@@ -109,7 +129,7 @@ class Chatbot:
         matches = re.findall(movieTitlePattern, input)
         if len(matches) > 1: #account for entering user input as quotes
           #self.repromptUserForTitle()
-          return "Invalid input"
+          return ("Invalid input", "")
         else:
           prep = ['The', 'A', 'An']
           input = matches[0]
@@ -117,15 +137,15 @@ class Chatbot:
           addPrepResult = self.addPrep(input.strip())
 
           if input.strip() in self.getTitlesStarterBot():
-            return input
+            return (input, "joyous movie is the best")
           elif modInput in prep:
             movieMod = (input[len(modInput):]).strip()
             if movieMod.strip() in self.getTitlesStarterBot():
-              return movieMod.strip()
+              return (movieMod.strip(), "very sad don't cry")
           elif addPrepResult[0] in self.getTitlesStarterBot():
-            return addPrepResult[0]
+            return (addPrepResult[0], "bad good sentiment good")
 
-        return "Invalid input"
+        return ("Invalid input", "")
 
     def getTitlesStarterBot(self):
         myTitles = []
@@ -143,7 +163,7 @@ class Chatbot:
         prePrep = ['the', 'a', 'an']
         postPrep = [', the', ', a', ', an']
         lowerInput = input.lower()
-        for title in self.getTitles():
+        for title in self.getTitlesStarterBot():
           lowerTitle = title.lower()
           preTitlePrep = lowerTitle.split()[0]
           postTitlePrep = (', ' + lowerTitle.split()[-1]).strip()
@@ -394,7 +414,7 @@ class Chatbot:
       #Idea: cosine similarity? -DV
       dot_product = np.dot(u, v) + 0.0
       norm_product = np.linalg.norm(u) * np.linalg.norm(v)
-      return dot_product / norm_product
+      return (dot_product / (norm_product + 1e-7))
       """u_norm = 0
       v_norm = 0
       for x in u:
@@ -412,10 +432,12 @@ class Chatbot:
     def get_sentiment_for_movies(self, t):
         result = []
         for movie, rest in t:
-            sentiment = calcSentimentScore(rest)
-            result.append(movie, sentiment)
+            score, sent = self.calcSentimentScore(rest)
+            result.append((movie, score))
+        return result
 
     def recommend(self, t):
+      self.debug == True
       """Generates a list of movies based on the input vector u using
       collaborative filtering"""
       # Implement a recommendation function that takes a user vector u
@@ -423,12 +445,14 @@ class Chatbot:
       # Assumes that t = [(movie w/o year, rest of sentence), (movie w/o year, rest of sentence), etc]
 
       index_of_j = [] #indices of the movies the user has commented on
-      titles = self.getTitles()
+      titles = self.getTitlesStarterBot()
 
-      u = get_sentiment_for_movies(t)
+      u = self.get_sentiment_for_movies(t)
       #i.e. u = [(movie1, rating1), (movie2, rating2) etc]
       for title, rating in u:
           index_of_j.append(titles.index(title))
+      print(u)
+      print(index_of_j)
 
       ri_list = [] #list of user's calculated rating for movie i
       for i in range(len(titles)):
@@ -437,12 +461,12 @@ class Chatbot:
           for j in range(len(index_of_j)):
               index_of_movie_j = index_of_j[j]
               movie_j = self.ratings[index_of_movie_j]
-              s_ij = distance(movie_i, movie_j)
-              ri += s_ij * u[j][1] # s_ij * r_xj
-              ri_list.append(ri)
+              s_ij = self.distance(movie_i, movie_j)
+              ri += s_ij * u[j][1] #s_ij * r_xj
+          ri_list.append(ri)
       #index of first movie that has max predicted rating
       index_of_max_rating = ri_list.index(max(ri_list))
-      return self.titles[index_of_max_rating]
+      return titles[index_of_max_rating]
 
     #############################################################################
     # 4. Debug info                                                             #
