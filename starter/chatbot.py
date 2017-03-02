@@ -24,6 +24,7 @@ class Chatbot:
       self.name = 'Hillary Rodham Clinton'
       self.is_turbo = True
       self.user_name = ''
+      self.sentiment_stemmed = {}
       self.read_data()
       self.num_to_recommend = 5
       self.arabic_to_roman = self.a_to_r()
@@ -109,7 +110,7 @@ class Chatbot:
         self.user_movies.append((title, rest_of_sentence))
         if len(self.user_movies) == 5:
             rec = self.recommend(self.user_movies)
-            response += "I recommend you " + rec + "\n" + movie_prompt
+            response += "I recommend you the following movies: \n " + rec + "\n" + movie_prompt
 
 
         """
@@ -332,14 +333,14 @@ class Chatbot:
         if w == 'reeeeeally':
             boost_tot += boost
 
-        #if the word is not in our sentiment dictionary, try using the stemmed version
+        #if the word is not in our sentiment dictionary, try using the stemmed version of the word
         if w not in self.sentiment:
           p = pa.PorterStemmer()
           w = p.returnStemmedWord(w)
 
         sentence += w
         sentence += ' '
-        #Negation
+        #negation is implemented below
         if w in self.sentiment:
           regex_result = []
           if self.sentiment[w] == 'neg':
@@ -356,6 +357,32 @@ class Chatbot:
                   else:
                       score -= 1
           elif self.sentiment[w] == 'pos':
+              if prev == 'not' or prev[-2:] == 'nt' or prev == 'never':
+                  score -= 1
+              else:
+                  regex = '((?:i.*?(?:nt|not|never)))(?:.*?)(?:' + w + ').*?'
+                  regex_result = re.findall(regex, input)
+                  if len(regex_result) > 0:
+                       score -= 1
+                  else:
+                      score += 1
+        #w might be in the stemmed lexicon rather than the regular sentiment lexicon
+        elif w in self.sentiment_stemmed:
+          regex_result = []
+          if self.sentiment_stemmed[w] == 'neg':
+              if prev == 'not' or prev[-2:] == 'nt' or prev == 'never':
+                  score += 1
+              else:
+                  if prev == 'pretty': #pretty bad
+                      score -= 1
+                  #below regex is to turn things like didn't really hate into positive
+                  regex = '((?:i.*?(?:nt|not|never)))(?:.*?)(?:' + w + ').*?'
+                  regex_result = re.findall(regex, input)
+                  if len(regex_result) > 0:
+                      score += 1
+                  else:
+                      score -= 1
+          elif self.sentiment_stemmed[w] == 'pos':
               if prev == 'not' or prev[-2:] == 'nt' or prev == 'never':
                   score -= 1
               else:
@@ -384,28 +411,41 @@ class Chatbot:
       # The values stored in each row i and column j is the rating for
       # movie i by user j
       self.titles, self.ratings = ratings()
+      #binarize the matrix
+      self.binarize()
       reader = csv.reader(open('data/sentiment.txt', 'rb'))
+
       self.sentiment = dict(reader)
+      #add some missing words to the sentiment lexicon
       self.sentiment['beautiful'] = 'pos'
       self.sentiment['fun'] = 'pos'
       self.sentiment['cool'] = 'pos'
       self.sentiment['enjoi'] = 'pos'
 
+      #create the stemmed sentiment dictionary
+      p = pa.PorterStemmer()
+      for w in self.sentiment:
+          stemmed_w = p.returnStemmedWord(w)
+          self.sentiment_stemmed[stemmed_w] = self.sentiment[w]
+
     def binarize(self):
       """Modifies the ratings matrix to make all of the ratings binary"""
       # Idea: +1 if the rating is > 2.5, -1 if it is <= 2.5, and 0 if it is not rated - DV
       #TODO: Can also try using each movie's average rating as its threshold
-      threshhold = 2.5
-      rows = self.ratings.shape[0]
+      self.debug == True
+      threshold = 2.5
+      self.ratings[np.where(self.ratings >= threshold)] = -2
+      self.ratings[np.where(self.ratings >= 0.5)] = -1
+      self.ratings[np.where(self.ratings == -2)] = 1
+      #below is old, slower version of binarizing
+      """rows = self.ratings.shape[0]
       cols = self.ratings.shape[1]
       for i in range(rows):
           for j in range(cols):
               if self.ratings[i][j] >= 0.5 and self.ratings[i][j] <= threshold:
                   self.ratings[i][j] = -1
               elif self.ratings[i][j] > threshold:
-                  self.ratings[i][j] = 1
-      return self.ratings
-
+                  self.ratings[i][j] = 1"""
 
     def distance(self, u, v):
       """Calculates a given distance function between vectors u and v"""
@@ -432,7 +472,7 @@ class Chatbot:
     def get_sentiment_for_movies(self, t):
         result = []
         for movie, rest in t:
-            score, sent = self.calcSentimentScore(rest)
+            score, stemmed_sentence = self.calcSentimentScore(rest)
             result.append((movie, score))
         return result
 
@@ -442,7 +482,7 @@ class Chatbot:
       collaborative filtering"""
       # Implement a recommendation function that takes a user vector u
       # and outputs a list of movies recommended by the chatbot
-      # Assumes that t = [(movie w/o year, rest of sentence), (movie w/o year, rest of sentence), etc]
+      # Assumes that t = [(movie as it appears in getTitles, rest of sentence), (movie as it appears in getTitles, rest of sentence), etc]
 
       index_of_j = [] #indices of the movies the user has commented on
       titles = self.getTitlesStarterBot()
@@ -451,22 +491,34 @@ class Chatbot:
       #i.e. u = [(movie1, rating1), (movie2, rating2) etc]
       for title, rating in u:
           index_of_j.append(titles.index(title))
-      print(u)
-      print(index_of_j)
+      #print(u)
+      #print(index_of_j)
 
       ri_list = [] #list of user's calculated rating for movie i
+      dont_include = False
       for i in range(len(titles)):
           ri = 0 #user's calculated rating for movie i
           movie_i = self.ratings[i] #get the row in the ratings matrix for movie i
           for j in range(len(index_of_j)):
+              if i == j:
+                  dont_include = True
               index_of_movie_j = index_of_j[j]
               movie_j = self.ratings[index_of_movie_j]
               s_ij = self.distance(movie_i, movie_j)
               ri += s_ij * u[j][1] #s_ij * r_xj
-          ri_list.append(ri)
-      #index of first movie that has max predicted rating
-      index_of_max_rating = ri_list.index(max(ri_list))
-      return titles[index_of_max_rating]
+          if not dont_include:
+              ri_list.append(ri)
+          dont_include = False
+
+      #returns a string of the movie titles of the k max ranked movies
+      k = -1*len(self.user_movies)/2
+      ri_list_np = np.array(ri_list)
+      ind = np.argpartition(ri_list_np, k)[k:] #indexes of the k max ri values, though not necessarily in order of max ri
+      result_string = ''
+      for i in ind:
+          result_string += titles[i]
+          result_string += '\n'
+      return result_string
 
     #############################################################################
     # 4. Debug info                                                             #
