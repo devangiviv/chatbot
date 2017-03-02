@@ -110,7 +110,7 @@ class Chatbot:
         self.user_movies.append((title, rest_of_sentence))
         if len(self.user_movies) == 5:
             rec = self.recommend(self.user_movies)
-            response += "I recommend you the following movies: \n " + rec + "\n" + movie_prompt
+            response += "I recommend you the following movies:\n " + rec + "\n" + movie_prompt
 
 
         """
@@ -412,7 +412,7 @@ class Chatbot:
       # movie i by user j
       self.titles, self.ratings = ratings()
       #binarize the matrix
-      self.binarize()
+      self.non_binarize() #comment this out to use the matrix as is
       reader = csv.reader(open('data/sentiment.txt', 'rb'))
 
       self.sentiment = dict(reader)
@@ -428,6 +428,12 @@ class Chatbot:
           stemmed_w = p.returnStemmedWord(w)
           self.sentiment_stemmed[stemmed_w] = self.sentiment[w]
 
+    #returns a matrix in
+    def non_binarize(self):
+        #subtract the mean from each row
+        for i in range(self.ratings.shape[0]):
+	           self.ratings[i][np.where(self.ratings[i]>0)] -= (np.mean(self.ratings[i][np.where(self.ratings[i]>0)], keepdims = True))[0]
+
     def binarize(self):
       """Modifies the ratings matrix to make all of the ratings binary"""
       # Idea: +1 if the rating is > 2.5, -1 if it is <= 2.5, and 0 if it is not rated - DV
@@ -437,15 +443,6 @@ class Chatbot:
       self.ratings[np.where(self.ratings >= threshold)] = -2
       self.ratings[np.where(self.ratings >= 0.5)] = -1
       self.ratings[np.where(self.ratings == -2)] = 1
-      #below is old, slower version of binarizing
-      """rows = self.ratings.shape[0]
-      cols = self.ratings.shape[1]
-      for i in range(rows):
-          for j in range(cols):
-              if self.ratings[i][j] >= 0.5 and self.ratings[i][j] <= threshold:
-                  self.ratings[i][j] = -1
-              elif self.ratings[i][j] > threshold:
-                  self.ratings[i][j] = 1"""
 
     def distance(self, u, v):
       """Calculates a given distance function between vectors u and v"""
@@ -455,17 +452,6 @@ class Chatbot:
       dot_product = np.dot(u, v) + 0.0
       norm_product = np.linalg.norm(u) * np.linalg.norm(v)
       return (dot_product / (norm_product + 1e-7))
-      """u_norm = 0
-      v_norm = 0
-      for x in u:
-          u_norm += x**2
-      for y in v:
-          v_norm += y**2
-      u_norm = math.sqrt(u_norm)
-      v_norm = math.sqrt(v_norm)
-      return dot_product / (u_norm * v_norm)
-      #if floating point, warnings, replace the above li
-      #return dot_product / (u_norm * v_norm + 1e-7)"""
 
     """Given a list of (valid movie title w/o year, input with movie title removed) tuples,
        returns a list of (valid movie titles w/o year, sentiment ratings)"""
@@ -497,7 +483,8 @@ class Chatbot:
       ri_list = [] #list of user's calculated rating for movie i
       dont_include = False
       for i in range(len(titles)):
-          ri = 0 #user's calculated rating for movie i
+          ri = 0.0 #user's calculated rating for movie i
+          sum_sij = 0.0
           movie_i = self.ratings[i] #get the row in the ratings matrix for movie i
           for j in range(len(index_of_j)):
               if i == j:
@@ -505,8 +492,10 @@ class Chatbot:
               index_of_movie_j = index_of_j[j]
               movie_j = self.ratings[index_of_movie_j]
               s_ij = self.distance(movie_i, movie_j)
+              sum_sij += s_ij
               ri += s_ij * u[j][1] #s_ij * r_xj
           if not dont_include:
+              #ri = ri / sum_sij #uncomment this line to normalize the score
               ri_list.append(ri)
           dont_include = False
 
