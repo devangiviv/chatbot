@@ -10,6 +10,7 @@ import csv
 import math
 import re
 import numpy as np
+import collections
 
 from movielens import ratings
 from random import randint
@@ -27,6 +28,7 @@ class Chatbot:
       self.sentiment_stemmed = {}
       self.read_data()
       self.num_to_recommend = 5
+      self.myTitles = collections.defaultdict(list)
       self.arabic_to_roman = self.a_to_r()
       self.roman_to_arabic = self.r_to_a()
       self.asked_for_name = False
@@ -106,8 +108,8 @@ class Chatbot:
             response += self.intro_cont
             self.asked_for_name = True"""
         movie_prompt = "Tell me about a movie\n"
-        title, rest_of_sentence = self.extractTitlesStarterBot(input) #returns a tuple
-        self.user_movies.append((title, rest_of_sentence))
+        movie_title, rest_of_sentence = self.extractTitles(input) #returns a tuple
+        self.user_movies.append((movie_title, rest_of_sentence))
         if len(self.user_movies) == 5:
             rec = self.recommend(self.user_movies)
             response += "I recommend you the following movies: \n " + rec + "\n" + movie_prompt
@@ -125,118 +127,201 @@ class Chatbot:
     ###TODO: Handle cases with years in movie title
     ###TODO: extract sentiment words and return string
 
-    def extractTitlesStarterBot(self, input):
-        movieTitlePattern  =  '"(.*?)"'
-        matches = re.findall(movieTitlePattern, input)
-        if len(matches) > 1: #account for entering user input as quotes
-          #self.repromptUserForTitle()
-          return ("Invalid input", "")
-        else:
-          prep = ['The', 'A', 'An']
-          input = matches[0]
-          modInput = input.strip().split()[0]
-          addPrepResult = self.addPrep(input.strip())
-
-          if input.strip() in self.getTitlesStarterBot():
-            return (input, "joyous movie is the best")
-          elif modInput in prep:
-            movieMod = (input[len(modInput):]).strip()
-            if movieMod.strip() in self.getTitlesStarterBot():
-              return (movieMod.strip(), "very sad don't cry")
-          elif addPrepResult[0] in self.getTitlesStarterBot():
-            return (addPrepResult[0], "bad good sentiment good")
-
-        return ("Invalid input", "")
-
-    def getTitlesStarterBot(self):
-        myTitles = []
-        for title in self.titles:
-          myTitles.append(title[0])
-        return myTitles;
-    def repromptUserForTitle(self):
-        pass
     #check first element of list because dictionary contains titles as title, genre
     #return a tuple -- first element is list, second element is words without movie for sentiment score
-
+    #THINK ABOUT KEEPING TITLES AS LIST OF LISTS
+    #DO DISAMBIGUATION before cycling thru titles
+    #return tuple with one index with title and ext with string of sentiments w no title
+    #etractTitles should return moviename as it appears in getTitles
     def extractTitles(self, input):
         self.debug == True
-
         prePrep = ['the', 'a', 'an']
         postPrep = [', the', ', a', ', an']
         lowerInput = input.lower()
-        for title in self.getTitlesStarterBot():
+        self.getTitles()
+        maxTitle = "No title found" #or set to no title found?
+        maxLen = 0
+        maxSent = ""
+        for title in self.myTitles:
+          #print("title extract titles")
+          #print(title)
           lowerTitle = title.lower()
-          preTitlePrep = lowerTitle.split()[0]
-          postTitlePrep = (', ' + lowerTitle.split()[-1]).strip()
-          i4 = -1
-          #i5 = -1
-          if postTitlePrep in postPrep:
-            #i5 = lowerInput.index(postTitlePrep)
+          #print(title)
+          preTitlePrep = []
+          postTitlePrep = []
+          if len(lowerTitle) > 0:
+            preTitlePrep = lowerTitle.split()[0].strip()
+            postTitlePrep = (', ' + lowerTitle.split()[-1]).strip()
+
+          (truth1, title1, sent1) = self.checkUserNoPostPrep(postTitlePrep, lowerInput, lowerTitle, title, input)
+          #print(truth1, title1, sent)
+          if truth1:
+            print("in truth 1")
+            if len(title1) > maxLen:
+              print("len title1 greater than maxLen")
+              maxTitle = title1
+              maxLen = len(title1)
+              maxSent = sent1
+              print("in truth 1")
+              print(sent1)
+          (truth2, title2, sent2) =  self.checkUserFullTitle(lowerInput, lowerTitle, title, input)
+          if truth2:
+            print("in truth 2")
+            if len(title2) > maxLen:
+              print("len title2 greater than maxLen")
+              maxTitle = title2
+              print("max Title, case 2 %s", maxTitle)
+              maxLen = len(title2)
+              maxSent = sent2
+              print("max title")
+              print(maxTitle)
+              print(sent2)
+          (truth3, title3, sent3) = self.checkUserNoPrePrep(preTitlePrep, lowerInput, lowerTitle, title, input)
+          if truth3:
+            print("in truth 3")
+            if len(title3) > maxLen:
+              print("len title3 greater than maxLen")
+              maxTitle = title3
+              maxLen = len(title3)
+              print(sent3)
+              maxSent = sent3
+          (truth4, title4, sent4) = self.checkUserYesPrePrep(preTitlePrep, lowerInput, lowerTitle, title, input)
+          if truth4:
+            print("in truth 4")
+            if len(title4) > maxLen:
+              print("len title4 greater than maxLen")
+              maxTitle = title4
+              maxLen = len(title4)
+              print(sent4)
+              maxSent = sent4
+        return (maxTitle, maxSent)
+
+
+    def checkUserNoPostPrep(self, postTitlePrep, lowerInput, lowerTitle, title, input):
+        i4 = -1
+        postPrep = [', the', ', a', ', an']
+        num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        if postTitlePrep in postPrep:
             i4 = lowerInput.find(lowerTitle[0: (len(lowerTitle) - len(postTitlePrep))].strip())
-          #if lowerTitle[0: (len(lowerTitle) - len(postTitlePrep)) + postTitlePrep is lowerTitle:
-          #  return title
-          if i4 >=0 and input[i4].isupper():
-            return "in i4"
-          i1 = lowerInput.find(lowerTitle)
-          if i1 >=0 and input[i1].isupper():
-            return "in i1"
-          i2 = -1
-          if preTitlePrep in prePrep:
-            i2 = lowerInput.find(lowerTitle[len(preTitlePrep):].strip())
+            iEnd = i4 + (len(lowerTitle) - len(postTitlePrep))
+        if i4 >=0 and input[i4].isupper():
+            sentimentWords = lowerInput.replace(lowerInput[i4:iEnd], "")
+            return (True, title, sentimentWords)
+        elif i4 >= 0 and (input[i4] in num):
+            sentimentWords = lowerInput.replace(lowerInput[i4:iEnd], "")
+            return (True, title, sentimentWords)
+        return (False, title, "")
+
+    def checkUserNoPrePrep(self, preTitlePrep, lowerInput, lowerTitle, title, input):
+        prePrep = ['the', 'a', 'an']
+        i2 = -1
+        num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        if preTitlePrep in prePrep:
+          i2 = lowerInput.find(lowerTitle[len(preTitlePrep):].strip())
+          iEnd = i2 + len(lowerTitle[len(preTitlePrep):].strip())
           #for situations where movie title begins with article, but user doesn't provide article
-          if i2 >=0 and input[i2].isupper():
-            return "in i2"
-          i3 = -1
-          #for situations where user provides article (capitalized) but movie title does not begin with article
-          for word in prePrep:
-            newTitle = word + " " + lowerTitle
-            i3  = lowerInput.find(newTitle)
-            if i3 >= 0 and input[i3].isupper():
-              return "in i3"
-          #for situations where movie title ends with article but user doesn't provide article, e.g. "Beautiful Mind, A"
-          #'''
+        if i2 >=0 and input[i2].isupper():
+          sentimentWords = lowerInput.replace(lowerInput[i2:iEnd],"")
+          print(sentimentWords)
+          return (True, title, sentimentWords)
+        elif i2 >= 0 and (input[i2] in num):
+            sentimentWords = lowerInput.replace(lowerInput[i2:iEnd],"")
+            return (True, title, sentimentWords)
+        return (False, title, "")
 
-          #'''
-          #for situations where movie title does
-        #in case titles are provided with the year
-        #for title in self.getTitlesStarterBot():
+    def checkUserYesPrePrep(self, preTitlePrep, lowerInput, lowerTitle, title, input):
+    #here need to check for if A beautiful mind, we return beautiful mind, a
+        i3 = -1
+        prePrep = ['the', 'a', 'an']
+        num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        #for situations where user provides article (capitalized) but movie title does not begin with article
+        for word in prePrep:
+         newTitle = word + " " + lowerTitle
+         i3  = lowerInput.find(newTitle)
+         iEnd = i3 + len(newTitle)
+         if i3 >= 0 and input[i3].isupper():
+           sentimentWords = lowerInput.replace(lowerInput[i3:iEnd], "")
+           print(sentimentWords)
+           return (True, title, sentimentWords)
+         elif i3 >= 0 and (input[i3] in num):
+            sentimentWords = lowerInput.replace(lowerInput[i3:iEnd], "")
+            return (True, title, sentimentWords)
+        return (False, title, "")
 
-        return "No title found"
+    def checkUserFullTitle(self, lowerInput, lowerTitle, title, input):
+
+      num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+      i1 = lowerInput.find(lowerTitle)
+      iEnd = i1 + len(lowerTitle)
+      if i1 >=0 and input[i1].isupper():
+        sentimentWords = lowerInput.replace(lowerInput[i1:iEnd], "")
+        print(sentimentWords)
+        return (True, title, sentimentWords)
+      elif i1 >= 0 and (input[i1] in num):
+        sentimentWords = lowerInput.replace(lowerInput[i1:iEnd], "")
+        return (True, title, sentimentWords)
+      return (False, title, "")
 
 
+
+    #modify to include list of lists
+    #parse out titles in parentheses
+    #for user input, will also have to parse out year and recognize.
     def getTitles(self):
         self.debug == True
-        myTitles = []
         prep = ['The', 'A', 'An']
+        #[("Legend of 1900, The (a.k.a. The Legend of the Pianist on the Ocean) (Leggenda del pianista sull'oceano) ", '(1998)')]
         pattern = '(.*?)(\([1-3][0-9][0-9][0-9]\))$'
         for title in self.titles:
-          #currMov = title[0]
-          movieYears = re.findall(pattern, title[0])
-          if len(movieYears) >= 1:
-            titleFinal = movieYears[0][0]
-            myTitles.append(titleFinal.strip())
-        return myTitles
+          moviePat = re.findall(pattern, title[0])
+          if len(moviePat) > 0:
+            currStr = moviePat[0][0]
+          if len(moviePat) >= 1:
+            titles = self.parseTitles(moviePat[0][0])
+            myYear = moviePat[0][1]
+            #for title in titles:
+            #  self.myTitles[title] = []
+            for title in titles:
+              self.myTitles[title.strip()].append(myYear)
+          else:
+            self.myTitles[currStr.strip()] = []
+        #print(self.myTitles[5570])
+        #print("TITLE DICT")
+        #print(self.myTitles)
 
-    #gets input from extractTitles
-    def checkValidMov(self, input):
-        #self.debug == True
-        #add lowercase comparison
-        myTitles = self.getTitles()
-        prep = ['The', 'A', 'An']
-        modInput = input.strip().split()[0]
-        addPrepResult = self.addPrep(input.strip())
-        if input.strip() in myTitles:
-          return (True, input.strip())
+    def parseTitles(self, titleList):
+        #print("parsing")
+        titles = []
+        ind = titleList.find('(')
+        title = titleList[:ind]
+        title.replace("a.k.a.", "")
+        titles.append(title)
+        #print("titles list")
+        #print(titleList)
+        titleList = titleList[ind:]
+        #print(titleList)
 
+        while titleList.strip() != "" and self.hasParen(titleList):
+          #print(titleList)
+          #print("inside loop")
+          ind1 = titleList.find('(')
+          ind2 = titleList.find(')')
+          title = titleList[ind1:ind2+1]
+          title = title[1:]
+          title = title[:-1]
+          title = title.strip()
+          title = title.replace("a.k.a.", "")
+          titles.append(title)
+          titleList = titleList[ind2+1:]
+        return titles
 
-        elif modInput in prep:
-          movieMod = (input[len(modInput):]).strip()
-          if movieMod.strip() in myTitles:
-            return (True, movieMod.strip())
-        elif addPrepResult[0]:
-          return (True, addPrepResult[1])
+    def hasParen(self, strin):
+        i = strin.find('(')
+        i2 = strin.find(')')
+        if i == -1 or i2 == -1:
+          return False
+        return True
 
-        return (False, "Invalid input")
 
     def addPrep(self, input):
         myTitles = self.getTitles()
@@ -485,7 +570,7 @@ class Chatbot:
       # Assumes that t = [(movie as it appears in getTitles, rest of sentence), (movie as it appears in getTitles, rest of sentence), etc]
 
       index_of_j = [] #indices of the movies the user has commented on
-      titles = self.getTitlesStarterBot()
+      titles = self.getTitles()
 
       u = self.get_sentiment_for_movies(t)
       #i.e. u = [(movie1, rating1), (movie2, rating2) etc]
