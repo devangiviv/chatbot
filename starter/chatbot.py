@@ -14,7 +14,10 @@ import collections
 
 from movielens import ratings
 from random import randint
-import portersalg as pa
+import PorterStemmer as pa
+
+import warnings
+warnings.filterwarnings("ignore")
 
 class Chatbot:
     """Simple class to implement the chatbot for PA 6."""
@@ -98,7 +101,7 @@ and I'm glad you chose me to give you some movie advice.
 Even in this short conversation we've had, I can tell you will do great things. The nation depends on it.
 It has been nice talking to you, and even though my memory will be wiped like my email servers the next time we meet, I'll leave you with this.
 Do all the good you can, for all the people you can, in all the ways you can, as long as you can. (Whether you're marching for equality or grading a chatbot.)
-\n\n God bless you, and God bless the United States of America."""
+\n\nGod bless you, and God bless the United States of America. """
 
       #############################################################################
       #                             END OF YOUR CODE                              #
@@ -151,7 +154,7 @@ Do all the good you can, for all the people you can, in all the ways you can, as
     	response = """\nDAY 20: Still haven't insulted Vets/POWs/Gold Star families. Told Trump that he's a disgrace. Sent Bill to ShopHouse for lunch. My WH isn't falling like a house of cards. Told the GOP that they're a trainwreck. Sent Bill to Au Bon Pain for a croissant."""
     	return response
     def getNah(self):
-    	response = """\nAlright fine, I’ll stop. But if you ever want more, check out my alternate reality on Twitter @IfHillaryHad. Or just check out the hashtag #BillErrands. :P"""
+    	response = """\nAlright fine, I'll stop. But if you ever want more, check out my alternate reality on Twitter @IfHillaryHad. Or just check out the hashtag #BillErrands. :P\nJust let me know if you want to go back to movies - you know what to do! (Hint: type 'back to movies')"""
     	return response
 
     def sassy_name_response(self):
@@ -514,12 +517,12 @@ https://www.youtube.com/watch?v=gneBUA39mnI"""
                 if len(matches) == 0:
                     self.did_not_understand(input)
                     return self.response
-                index = self.getIndexExact(exact_title)
+                index = self.getIndexExact(matches[0])
                 if index == -1:
                     self.did_not_understand(input)
                     return self.response
                 self.processing_movie_years = False
-                movie_title = self.titles[self.getIndexExact(exact_title)][0]
+                movie_title = self.titles[index][0]
                 score = self.calcSentimentScore(rest_of_sentence)
                 #NEUTRAL SCORE
                 if score == 0:
@@ -552,16 +555,6 @@ https://www.youtube.com/watch?v=gneBUA39mnI"""
         return self.response
 
     ########EXTRACT CODE################
-    ###TODO: edge cases - Motorcycle diaries, Man with one red shoe, string II, Cutting edge: the mahic of mvie editing
-    ###TODO: Handle cases with years in movie title
-    ###TODO: extract sentiment words and return string
-
-    #check first element of list because dictionary contains titles as title, genre
-    #return a tuple -- first element is list, second element is words without movie for sentiment score
-    #THINK ABOUT KEEPING TITLES AS LIST OF LISTS
-    #DO DISAMBIGUATION before cycling thru titles
-    #return tuple with one index with title and ext with string of sentiments w no title
-    #etractTitles should return moviename as it appears in getTitles
     def isMovie(self, input):
         for title in self.myTitles:
           if input.lower().strip() == title.lower().strip():
@@ -925,273 +918,6 @@ https://www.youtube.com/watch?v=gneBUA39mnI"""
           input = input.replace(p, '')
         return input
 
-    """def extractTitles(self, input):
-        #self.debug == True
-        prePrep = ['the', 'a', 'an']
-        postPrep = [', the', ', a', ', an']
-        lowerInput = input.lower()
-        maxTitle = "No title found" #or set to no title found?
-        maxLen = 0
-        maxSent = ""
-        for title in self.myTitles:
-          #print("title extract titles")
-          #print(title)
-          lowerTitle = title.lower()
-          #print(title)
-          preTitlePrep = []
-          postTitlePrep = []
-          if len(lowerTitle) > 0:
-            preTitlePrep = lowerTitle.split()[0].strip()
-            postTitlePrep = (', ' + lowerTitle.split()[-1]).strip()
-
-          (truth1, title1, sent1) = self.checkUserNoPostPrep(postTitlePrep, lowerInput, lowerTitle, title, input)
-          #print(truth1, title1, sent)
-          if truth1:
-            #print("in truth 1")
-            if len(title1) > maxLen:
-              #print("len title1 greater than maxLen")
-              maxTitle = title1
-              maxLen = len(title1)
-              maxSent = sent1
-              #print("in truth 1")
-              #print(sent1)
-          (truth2, title2, sent2) =  self.checkUserFullTitle(lowerInput, lowerTitle, title, input)
-          if truth2:
-            #print("in truth 2")
-            #print("This is the max len")
-            #print(maxLen)
-            #print("This is the max title")
-            #print(maxTitle)
-            if len(title2) > maxLen:
-              #print("This is title 2!")
-              #print(title2)
-              #print("len title2 greater than maxLen")
-              maxTitle = title2
-              #print("max Title, case 2 %s", maxTitle)
-              maxLen = len(title2)
-              maxSent = sent2
-              #print("max title")
-              #print(maxTitle)
-              #print(sent2)
-          (truth3, title3, sent3) = self.checkUserNoPrePrep(preTitlePrep, lowerInput, lowerTitle, title, input)
-          if truth3:
-            #print("in truth 3")
-            if len(title3) > maxLen:
-              #print("len title3 greater than maxLen")
-              maxTitle = title3
-              maxLen = len(title3)
-              #print(sent3)
-              maxSent = sent3
-          (truth4, title4, sent4) = self.checkUserYesPrePrep(preTitlePrep, lowerInput, lowerTitle, title, input)
-          if truth4:
-            #print("in truth 4")
-            if len(title4) > maxLen:
-              #print("len title4 greater than maxLen")
-              maxTitle = title4
-              maxLen = len(title4)
-              #print(sent4)
-              maxSent = sent4
-        #print(self.myTitles)
-        return (maxTitle, maxSent)
-
-
-    def checkUserNoPostPrep(self, postTitlePrep, lowerInput, lowerTitle, title, input):
-        i4 = -1
-        postPrep = [', the', ', a', ', an']
-        num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-        if postTitlePrep in postPrep:
-            i4 = lowerInput.find(lowerTitle[0: (len(lowerTitle) - len(postTitlePrep))].strip())
-            iEnd = i4 + (len(lowerTitle) - len(postTitlePrep))
-        if i4 >=0 and input[i4].isupper():
-            sentimentWords = lowerInput.replace(lowerInput[i4:iEnd], "")
-            return (True, title, sentimentWords)
-        elif i4 >= 0 and (input[i4] in num):
-            sentimentWords = lowerInput.replace(lowerInput[i4:iEnd], "")
-            return (True, title, sentimentWords)
-        return (False, title, "")
-
-    def checkUserNoPrePrep(self, preTitlePrep, lowerInput, lowerTitle, title, input):
-        prePrep = ['the', 'a', 'an']
-        i2 = -1
-        num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-        if preTitlePrep in prePrep:
-          i2 = lowerInput.find(lowerTitle[len(preTitlePrep):].strip())
-          iEnd = i2 + len(lowerTitle[len(preTitlePrep):].strip())
-          #for situations where movie title begins with article, but user doesn't provide article
-        if i2 >=0 and input[i2].isupper():
-          sentimentWords = lowerInput.replace(lowerInput[i2:iEnd],"")
-          print(sentimentWords)
-          return (True, title, sentimentWords)
-        elif i2 >= 0 and (input[i2] in num):
-            sentimentWords = lowerInput.replace(lowerInput[i2:iEnd],"")
-            return (True, title, sentimentWords)
-        return (False, title, "")
-
-    def checkUserYesPrePrep(self, preTitlePrep, lowerInput, lowerTitle, title, input):
-    #here need to check for if A beautiful mind, we return beautiful mind, a
-        i3 = -1
-        prePrep = ['the', 'a', 'an']
-        num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-        #for situations where user provides article (capitalized) but movie title does not begin with article
-        for word in prePrep:
-         newTitle = word + " " + lowerTitle
-         i3  = lowerInput.find(newTitle)
-         iEnd = i3 + len(newTitle)
-         if i3 >= 0 and input[i3].isupper():
-           sentimentWords = lowerInput.replace(lowerInput[i3:iEnd], "")
-           #print(sentimentWords)
-           return (True, title, sentimentWords)
-         elif i3 >= 0 and (input[i3] in num):
-            sentimentWords = lowerInput.replace(lowerInput[i3:iEnd], "")
-            return (True, title, sentimentWords)
-        return (False, title, "")
-
-    def checkUserFullTitle(self, lowerInput, lowerTitle, title, input):
-
-      num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-      #print("lower input lower title")
-      #print(lowerInput)
-      #print(lowerTitle)
-      i1 = lowerInput.find(lowerTitle)
-      iEnd = i1 + len(lowerTitle)
-      if i1 >=0 and input[i1].isupper():
-        #print("Arguments to checkusefultitle")
-        #print("in if statment----------------------------")
-        #print(lowerInput)
-        #print(lowerTitle)
-        #print(title)
-        #print(input)
-        sentimentWords = lowerInput.replace(lowerInput[i1:iEnd], "")
-        #print(sentimentWords)
-        return (True, title, sentimentWords)
-      elif i1 >= 0 and (input[i1] in num):
-        sentimentWords = lowerInput.replace(lowerInput[i1:iEnd], "")
-        return (True, title, sentimentWords)
-      return (False, title, "")
-
-
-
-    #modify to include list of lists
-    #parse out titles in parentheses
-    #for user input, will also have to parse out year and recognize.
-    def getTitles(self):
-        #self.debug = True
-        prep = ['The', 'A', 'An']
-        #[("Legend of 1900, The (a.k.a. The Legend of the Pianist on the Ocean) (Leggenda del pianista sull'oceano) ", '(1998)')]
-        pattern = '(.*?)(\([1-3][0-9][0-9][0-9]\))$'
-        moviePat = ''
-        currStr = ''
-        #print("HERE__________")
-        for title in self.titles:
-          moviePat = re.findall(pattern, title[0])
-
-          if len(moviePat) > 0:
-            currStr = moviePat[0][0]
-          if len(moviePat) >= 1:
-            titles = self.parseTitles(moviePat[0][0])
-            myYear = moviePat[0][1]
-            #for title in titles:
-            #  self.myTitles[title] = []
-            for title in titles:
-              self.myTitles[title.strip()].append(myYear)
-          else:
-            self.myTitles[currStr.strip()] = []
-        #print(self.myTitles[5570])
-        #print("TITLE DICT")
-        #print(self.myTitles)
-
-    def parseTitles(self, titleList):
-        #print("parsing")
-        titles = []
-        ind = titleList.find('(')
-        title = titleList[:ind]
-        title.replace("a.k.a.", "")
-        titles.append(title)
-        #print("titles list")
-        #print(titleList)
-        titleList = titleList[ind:]
-        #print(titleList)
-
-        while titleList.strip() != "" and self.hasParen(titleList):
-          #print(titleList)
-          #print("inside loop")
-          ind1 = titleList.find('(')
-          ind2 = titleList.find(')')
-          title = titleList[ind1:ind2+1]
-          title = title[1:]
-          title = title[:-1]
-          title = title.strip()
-          title = title.replace("a.k.a.", "")
-          titles.append(title)
-          titleList = titleList[ind2+1:]
-        return titles
-
-    def hasParen(self, strin):
-        i = strin.find('(')
-        i2 = strin.find(')')
-        if i == -1 or i2 == -1:
-          return False
-        return True
-
-
-    def addPrep(self, input):
-        prep = ['The', 'A', 'An']
-        modInput = ""
-        modInputs = []
-        for word in prep:
-          modInput = word + " " + input
-          modInputs.append(modInput)
-        for movie in modInputs:
-          if movie in self.myTitles:
-            return (True, movie)
-        return (False, "Invalid input")
-
-
-    def a_to_r(self):
-        d = {}
-        d['1'] = 'I'
-        d['2'] = 'II'
-        d['3'] = 'III'
-        d['4'] = 'IV'
-        d['5'] = 'V'
-        d['6'] = 'VI'
-        d['7'] = 'VII'
-        d['8'] = 'VIII'
-        d['9'] = 'IX'
-        d['10'] = 'X'
-        d['15'] = 'XV'
-        return d
-
-    def r_to_a(self):
-        d = {}
-        d['I'] = '1'
-        d['II'] = '2'
-        d['III'] = '3'
-        d['IV'] = '4'
-        d['V'] = '5'
-        d['VI'] = '6'
-        d['VII'] = '7'
-        d['VIII'] = '8'
-        d['IX'] = '9'
-        d['X'] = '10'
-        d['XV'] = '11'
-        d['XII'] = '12'
-        d['XIII'] = '13'
-        d['XIV'] = '14'
-        d['XX'] = '20'
-        d['XXI'] = '21'
-        d['XXIV'] = '24'
-        d['XXX'] = '30'
-        d['XXXIII'] = '33'
-        d['XLV'] = '45'
-        d['LXIX'] = '69'
-        d['XCIX'] = '99'
-        d['CC'] = '200'
-        d['M'] = '1000'
-        d['MM'] = '2000'
-        d['MMXLVI'] = '2046'
-        return d
-    """
     def remove_punct(self, input):
         input = input.lower()
         punc = ['.', ',', ';', ':', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')', '\'', "\"", '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
@@ -1410,12 +1136,13 @@ https://www.youtube.com/watch?v=gneBUA39mnI"""
       """Returns debug information as a string for the input string from the REPL"""
       # Pass the debug information that you may think is important for your
       # evaluators
-      debug_info = self.user_movies
+      #debug_info = self.user_movies
       #debug_info, stemmed_input = self.calcEmotionScore(input)
       #if not debug_info:
       #  debug_info = 'neither anger nor happiness'
 
-      return debug_info
+      #return debug_info
+      pass
 
 
     #############################################################################
