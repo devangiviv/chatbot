@@ -29,18 +29,14 @@ class Chatbot:
       self.read_data()
       self.num_to_recommend = 5
       self.myTitles = collections.defaultdict(list)
+      self.getTitles()
       self.arabic_to_roman = self.a_to_r()
       self.roman_to_arabic = self.r_to_a()
-      self.asked_for_name = False
-      self.sassy_name_response = """Wow, so you don\'t want to tell me your name...I\'ll just call you Donald. That's what you get HA! \n \n"""
-      self.intro_cont = """Let me warn you - although I'm very focused, I can get chatty as well.
-      I'll talk to you about everything from Trump to an alternate reality in which I’m President
-      (just ask about the "alternate universe"). If you ever want to go back to talking about movie recommendations,
-      just let me know by typing "back to movies." And if you ever want to break my heartlike the Electoral College and
-      leave me, just type :quit. Here's how this works. Unlike many GOP congresspeople, I don't avoid town halls
-      and I want to hear what you have to say.
-      So, why don't you start by telling me about a movie you’ve seen and how you felt about it?\n"""
       self.user_movies = [] #eventually use this to refer back to movies mentioned
+      self.response = ''
+
+      #BOOL VARIABLES FOR DFA
+      self.asked_for_name = False
 
     #############################################################################
     # 1. WARM UP REPL
@@ -87,40 +83,154 @@ class Chatbot:
     # 2. Modules 2 and 3: extraction and transformation                         #
     #############################################################################
 
+    def sassy_name_response(self):
+        return"""Wow, so you don\'t want to tell me your name...I\'ll just call you Donald. That's what you get HA! \n \n"""
+
+    def intro_cont(self):
+        return """Let me warn you - although I'm very focused, I can get chatty (and slightlyyy sassy) as well.
+        I'll talk to you about everything from Trump to an alternate reality in which I'm President
+        (just ask about the "alternate universe"). If you ever want to go back to talking about movie recommendations,
+        just let me know by typing "back to movies." And if you ever want to break my heartlike the Electoral College and
+        leave me, just type :quit. Here's how this works. Unlike many GOP congresspeople, I don't avoid town halls
+        and I want to hear what you have to say.
+        So, why don't you start by telling me about a movie you've seen and how you felt about it?\n"""
+
+    def give_recommendation_string(self):
+        return """Hmm, give me a second to think of the perfect recommendation for you.
+         In the meantime, did you know I was actually in the movie "Love Actually"?
+         Check it out while you wait: https://www.youtube.com/watch?v=IAhF8tPqafQ.
+         ...
+         ...
+         ...
+         Okay, you've told me about """ + str(len(self.user_movies)) + """ movies, so I'll give you about half as many recommendations.
+         Think that's too few? DEAL WITH IT LOL. Read my book "Hard Choices." 'Cause that's how we do it in Brooklyn, baby!
+         """
+
+    def ask_for_name(self, input):
+        self.user_name = input.strip()
+        if input.strip() == '' or input == '\n' or not input:
+            self.response += self.sassy_name_response()
+            self.user_name = 'Donald'
+        self.response += 'Hi there, ' + self.user_name + '!\n\n'
+        self.response += self.intro_cont()
+        self.asked_for_name = True
+
+    """ Still in movie scheme - haven't given a rec"""
+    def did_not_understand(self, input):
+        #if user is talking about a movie not in database
+        regex = '"(.*?)"'
+        unknown_mov = re.findall(regex, input)
+        if len(unknown_mov) > 0:
+            self.response += "Okay, I have to admit something. Besides politics, I don’t get out much and I don’t know what movie you’re referring to by " + unknown_mov[0] + ". Please tell me about a different one or try again…"
+        #if user does not talk about a movie
+        else:
+            self.response += "Hey, " + self.user_name + ", let's stay on topic here and remember why I'm taking time out of my nap schedule to be here with you...I'd love to chat, but only after we finish one round of movie recommendations."
+        self.reprompt_for_movie()
+
+    def reprompt_for_movie_strings(self):
+        reprompt_strings = []
+        reprompt_strings.append("""\nRemember, I can't recommend you movies unless you tell me about at least 5 you've already watched! Let's get this rolling...(Come on, don't be shy, """ + self.user_name + ")!!")
+        reprompt_strings.append("""\nKeep 'em coming! Remember, I want to hear about 4 more movies before recommending one.""")
+        reprompt_strings.append("""\nYay, just 3 more movies to go.""")
+        reprompt_strings.append("""\nYay, just 2 more movies to go.""")
+        reprompt_strings.append("""\nGreat - I just need one more opinion before I make a recommendation! What's another movie you felt strongly about?""")
+        reprompt_strings.append("""\nI can see you like my my movie recommendations ;)""")
+        return reprompt_strings
+
+    def reprompt_for_movie(self):
+        reprompt_strings = self.reprompt_for_movie_strings()
+        if len(self.user_movies) == 0:
+            self.response += reprompt_strings[0]
+        elif len(self.user_movies) == 1:
+            self.response += reprompt_strings[1]
+        elif len(self.user_movies) == 2:
+            self.response += reprompt_strings[2]
+        elif len(self.user_movies) == 3:
+            self.response += reprompt_strings[3]
+        elif len(self.user_movies) == 4:
+            self.response += reprompt_strings[4]
+        elif len(self.user_movies) > 4:
+            self.response += reprompt_strings[5]
+        self.response += self.movie_prompt()
+
+    def movie_prompt(self):
+        if len(self.user_movies) > 0:
+            return """\n\nAlright, tell me about another movie you've seen and how you felt about it!\n"""
+        else:
+            return """\n\nAlright, tell me about a movie you've seen and how you felt about it!\n"""
+
+    def sentiment_grounding(self, score):
+        if score > 1:
+            return "liked it."
+        if score > 2:
+            return "really, really liked it."
+        if score < -1:
+            return "didn't like it."
+        if score < -2:
+            return "really, really didn't like it."
+
+    def respond_to_movie(self, movie_title, score):
+        repeat = False
+        for i in range(len(self.user_movies)):
+            movie = self.user_movies[i][0]
+            old_score = self.user_movies[i][1]
+            if movie == movie_title:
+                repeat = True
+                sent = self.sentiment_grounding(old_score)
+                self.response += "Ah, \"" + str(movie_title) + "\" again! I remember you " + sent + " So let me see - do you still feel the same way?\n...\nHmm."
+                self.user_movies[i] = (movie, score)
+
+        if not repeat:
+            self.user_movies.append((movie_title, score))
+        ind = self.getIndex(movie_title)
+        genre = self.titles[ind][1]
+        genre = genre.replace("|", "/")
+        if score >= 2 or score <= -2:
+            self.response += " Ooh okay, I can tell you feel quite strongly about this one. "
+        if score > 0:
+            self.response += " Okay I totally agree - I like " + genre + " movies quite a bit, too!"
+        if score < 0:
+            self.response += " Oh, I hear ya, " + self.user_name + ", I don't like " + genre + " movies, either."
+        rand = randint(0,3)
+        if not rand:
+            self.response += " (Then again, I'm a politician. Flip-flopping opinions is my job. :P)"
+
+    def process_neutral_score(self, movie_title):
+        retort_string = """Hmmm, I think you're being a bit unclear, so I'm having a hard time understanding you...
+        You're basically me trying to crack a joke on national television - no one gets it.
+        Put some more gusto into it so I can actually tell how you feel about """ + movie_title + "!!"
+        self.response += retort_string
+
     def process(self, input):
         """Takes the input string from the REPL and call delegated functions
-        that
-        1) extract the relevant information and
-        2) transform the information into a response to the user
-        """
-        #############################################################################
-        # Implement the extraction and transformation in this method, possibly#
-        # calling other functions. Although modular code is not graded, it is       #
-        # highly recommended                                                        #
-        #############################################################################
-        response = ''
-        """if not self.asked_for_name:
-            self.user_name = input.strip()
-            if self.user_name == '':
-                response += self.sassy_name_response
-                self.user_name = 'Donald'
-            response += 'Hi there, ' + self.user_name + '!\n\n'
-            response += self.intro_cont
-            self.asked_for_name = True"""
-        movie_prompt = "Tell me about a movie\n"
+        that 1) extract the relevant information and 2) transform the information into a response to the user"""
+        self.response = ''
+        #ASKING FOR NAME
+        if not self.asked_for_name:
+            self.ask_for_name(input)
+            return self.response
+        #--------------------MOVIE SCHEME----------------------------------------
         movie_title, rest_of_sentence = self.extractTitles(input) #returns a tuple
-        self.user_movies.append((movie_title, rest_of_sentence))
+        #NOT A VALID TITLE
+        if movie_title == "No title found":
+            self.did_not_understand(input)
+            return self.response
+        #VALID TITLE
+        else:
+            score = self.calcSentimentScore(rest_of_sentence)
+            #NEUTRAL SCORE
+            if score == 0:
+                self.process_neutral_score(movie_title)
+            #NON-NEUTRAL SCORE
+            else:
+                self.respond_to_movie(movie_title, score)
+            self.reprompt_for_movie()
+
         if len(self.user_movies) == 5:
             rec = self.recommend(self.user_movies)
-            response += "I recommend you the following movies: \n " + rec + "\n" + movie_prompt
-
-
-        """
-        score, stemmed_input = self.calcSentimentScore(input)
-        #response = ' '.join(input.split())
-        response = "The score is %d, The stemmed input is %s, The extracted title is %s" % (score, stemmed_input, response1)
-        """
-        return response
+            self.response += self.give_recommendation_string()
+            self.response += "\nOkay, here are the movies I think you should watch: \n " + rec
+        return self.response
 
     ########EXTRACT CODE################
     ###TODO: edge cases - Motorcycle diaries, Man with one red shoe, string II, Cutting edge: the mahic of mvie editing
@@ -138,7 +248,6 @@ class Chatbot:
         prePrep = ['the', 'a', 'an']
         postPrep = [', the', ', a', ', an']
         lowerInput = input.lower()
-        self.getTitles()
         maxTitle = "No title found" #or set to no title found?
         maxLen = 0
         maxSent = ""
@@ -167,7 +276,13 @@ class Chatbot:
           (truth2, title2, sent2) =  self.checkUserFullTitle(lowerInput, lowerTitle, title, input)
           if truth2:
             print("in truth 2")
+            print("This is the max len")
+            print(maxLen)
+            print("This is the max title")
+            print(maxTitle)
             if len(title2) > maxLen:
+              print("This is title 2!")
+              print(title2)
               print("len title2 greater than maxLen")
               maxTitle = title2
               print("max Title, case 2 %s", maxTitle)
@@ -194,6 +309,7 @@ class Chatbot:
               maxLen = len(title4)
               print(sent4)
               maxSent = sent4
+        #print(self.myTitles)
         return (maxTitle, maxSent)
 
 
@@ -251,9 +367,18 @@ class Chatbot:
     def checkUserFullTitle(self, lowerInput, lowerTitle, title, input):
 
       num = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+      #print("lower input lower title")
+      #print(lowerInput)
+      #print(lowerTitle)
       i1 = lowerInput.find(lowerTitle)
       iEnd = i1 + len(lowerTitle)
       if i1 >=0 and input[i1].isupper():
+        print("Arguments to checkusefultitle")
+        print("in if statment----------------------------")
+        print(lowerInput)
+        print(lowerTitle)
+        print(title)
+        print(input)
         sentimentWords = lowerInput.replace(lowerInput[i1:iEnd], "")
         print(sentimentWords)
         return (True, title, sentimentWords)
@@ -324,7 +449,6 @@ class Chatbot:
 
 
     def addPrep(self, input):
-        myTitles = self.getTitles()
         prep = ['The', 'A', 'An']
         modInput = ""
         modInputs = []
@@ -332,7 +456,7 @@ class Chatbot:
           modInput = word + " " + input
           modInputs.append(modInput)
         for movie in modInputs:
-          if movie in myTitles:
+          if movie in self.myTitles:
             return (True, movie)
         return (False, "Invalid input")
 
@@ -384,7 +508,7 @@ class Chatbot:
 
     def remove_punct(self, input):
         input = input.lower()
-        punc = ['.', ',', ';', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')', '\'', "\""]
+        punc = ['.', ',', ';', '!', '?', '/', '@', '#', '*', '&', '$', '-', '+', '\n', '(', ')', '\'', "\"", '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
         for p in punc:
           input = input.replace(p, '')
         return input
@@ -392,13 +516,14 @@ class Chatbot:
     """If returned score is >=2 or <= 2, it's probably a strong emotion.
        If returned score is >=3 or <= 3, it's definitely a strong emotion."""
     def calcSentimentScore(self, input):
-      #TODO: better metrics - emphasis if line contains many !!! or reaaallyyy (more generally)
       score = 0
-      intensifiers = ['realli', 'veri', 'truli', 'extrem', 'so', 'soo', 'quite']
+      intensifiers = ['realli', 'veri', 'truli', 'extrem', 'so', 'soo', 'quite', 'lot']
       strong_pos = ['love', 'favorite', 'best', 'amazing', 'perfect']
       strong_neg = ['hate', 'worst', 'disgust']
       boost_tot = 1
       boost = 1
+      if '!!' in input:
+          boost_tot += boost
 
       #normalize input
       input = self.remove_punct(input)
@@ -485,7 +610,7 @@ class Chatbot:
         if w in strong_neg:
             boost_tot += boost
       score *= boost_tot
-      return score, sentence
+      return score
     #############################################################################
     # 3. Movie Recommendation helper functions                                  #
     #############################################################################
@@ -540,26 +665,21 @@ class Chatbot:
       dot_product = np.dot(u, v) + 0.0
       norm_product = np.linalg.norm(u) * np.linalg.norm(v)
       return (dot_product / (norm_product + 1e-7))
-      """u_norm = 0
-      v_norm = 0
-      for x in u:
-          u_norm += x**2
-      for y in v:
-          v_norm += y**2
-      u_norm = math.sqrt(u_norm)
-      v_norm = math.sqrt(v_norm)
-      return dot_product / (u_norm * v_norm)
-      #if floating point, warnings, replace the above li
-      #return dot_product / (u_norm * v_norm + 1e-7)"""
 
     """Given a list of (valid movie title w/o year, input with movie title removed) tuples,
        returns a list of (valid movie titles w/o year, sentiment ratings)"""
-    def get_sentiment_for_movies(self, t):
+    """def get_sentiment_for_movies(self, t):
         result = []
         for movie, rest in t:
-            score, stemmed_sentence = self.calcSentimentScore(rest)
+            score = self.calcSentimentScore(rest)
             result.append((movie, score))
-        return result
+        return result"""
+
+    """Returns the index in the original 9125 dimensions for a given title extracted from the user's input"""
+    def getIndex(self, title):
+        for i in range(len(self.titles)):
+            if title in self.titles[i][0]:
+                return i
 
     def recommend(self, t):
       self.debug == True
@@ -570,18 +690,15 @@ class Chatbot:
       # Assumes that t = [(movie as it appears in getTitles, rest of sentence), (movie as it appears in getTitles, rest of sentence), etc]
 
       index_of_j = [] #indices of the movies the user has commented on
-      titles = self.getTitles()
-
-      u = self.get_sentiment_for_movies(t)
+      u = self.user_movies
       #i.e. u = [(movie1, rating1), (movie2, rating2) etc]
       for title, rating in u:
-          index_of_j.append(titles.index(title))
-      #print(u)
-      #print(index_of_j)
+          index_of_j.append(self.getIndex(title))
+      print(index_of_j)
 
       ri_list = [] #list of user's calculated rating for movie i
       dont_include = False
-      for i in range(len(titles)):
+      for i in range(len(self.titles)):
           ri = 0 #user's calculated rating for movie i
           movie_i = self.ratings[i] #get the row in the ratings matrix for movie i
           for j in range(len(index_of_j)):
@@ -601,7 +718,7 @@ class Chatbot:
       ind = np.argpartition(ri_list_np, k)[k:] #indexes of the k max ri values, though not necessarily in order of max ri
       result_string = ''
       for i in ind:
-          result_string += titles[i]
+          result_string += self.titles[i][0]
           result_string += '\n'
       return result_string
 
@@ -613,7 +730,7 @@ class Chatbot:
       """Returns debug information as a string for the input string from the REPL"""
       # Pass the debug information that you may think is important for your
       # evaluators
-      debug_info = self.binarize()
+      debug_info = self.user_movies
       return debug_info
 
 
