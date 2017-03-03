@@ -27,7 +27,6 @@ class Chatbot:
       self.user_name = ''
       self.sentiment_stemmed = {}
       self.read_data()
-      self.num_to_recommend = 5
       self.myTitles = collections.defaultdict(list)
       self.getTitles()
       self.arabic_to_roman = self.a_to_r()
@@ -35,8 +34,12 @@ class Chatbot:
       self.user_movies = [] #eventually use this to refer back to movies mentioned
       self.response = ''
 
+
       #BOOL VARIABLES FOR DFA
       self.asked_for_name = False
+      self.movie_scheme = True #since we haven't recommended a movie yet
+      self.just_recommended = False
+      self.explored_alternate_universe = False
 
     #############################################################################
     # 1. WARM UP REPL
@@ -70,7 +73,11 @@ class Chatbot:
       #############################################################################
       # Write a short farewell message                                      #
       #############################################################################
-      goodbye_message = 'Great chatting with you - enjoy your movie!'
+      goodbye_message = """I've always believed you can learn something from nearly everybody you meet, if you're open to it.
+      Even in this short conversation we've had, I can tell you will do great things. The nation depends on it.
+      It has been nice talking to you, and I'll leave you with this.
+      Do all the good you can, for all the people you can, in all the ways you can, as long as you can. (Whether you're marching for equality or grading a chatbot.)
+      \n\n God bless you, and God bless the United States of America."""
 
       #############################################################################
       #                             END OF YOUR CODE                              #
@@ -90,7 +97,7 @@ class Chatbot:
         return """Let me warn you - although I'm very focused, I can get chatty (and slightlyyy sassy) as well.
         I'll talk to you about everything from Trump to an alternate reality in which I'm President
         (just ask about the "alternate universe"). If you ever want to go back to talking about movie recommendations,
-        just let me know by typing "back to movies." And if you ever want to break my heartlike the Electoral College and
+        just let me know by typing 'back to movies.' And if you ever want to break my heartlike the Electoral College and
         leave me, just type :quit. Here's how this works. Unlike many GOP congresspeople, I don't avoid town halls
         and I want to hear what you have to say.
         So, why don't you start by telling me about a movie you've seen and how you felt about it?\n"""
@@ -121,7 +128,7 @@ class Chatbot:
         regex = '"(.*?)"'
         unknown_mov = re.findall(regex, input)
         if len(unknown_mov) > 0:
-            self.response += "Okay, I have to admit something. Besides politics, I don’t get out much and I don’t know what movie you’re referring to by " + unknown_mov[0] + ". Please tell me about a different one or try again…"
+            self.response += "Okay, I have to admit something. Besides politics, I don't get out much and I don't know what movie you're referring to by " + unknown_mov[0] + ". Please tell me about a different one or try again…"
         #if user does not talk about a movie
         else:
             self.response += "Hey, " + self.user_name + ", let's stay on topic here and remember why I'm taking time out of my nap schedule to be here with you...I'd love to chat, but only after we finish one round of movie recommendations."
@@ -151,7 +158,8 @@ class Chatbot:
             self.response += reprompt_strings[4]
         elif len(self.user_movies) > 4:
             self.response += reprompt_strings[5]
-        self.response += self.movie_prompt()
+        if len(self.user_movies) <= 4:
+            self.response += self.movie_prompt()
 
     def movie_prompt(self):
         if len(self.user_movies) > 0:
@@ -201,6 +209,36 @@ class Chatbot:
         Put some more gusto into it so I can actually tell how you feel about """ + movie_title + "!!"
         self.response += retort_string
 
+    def output_recommendation(self):
+        rec = self.recommend(self.user_movies)
+        self.response += self.give_recommendation_string()
+        self.response += "\nOkay, here are the movies I think you should watch: \n " + rec
+        self.movie_scheme = False
+        self.just_recommended = True
+        self.response += "So, do you like this recommendation as much as I like statement pantsuits? #pantsuitnation \n Be honest with me - yes or no?"
+
+    def generalInstructions(self):
+        result = """\n \n Now, if you want to go back to movie recommendations, just type 'back to movies'. Otherwise, we can just chat :)"""
+        if not self.explored_alternate_universe:
+            result += "\nAnd you stil haven't asked me about the alternate universe where I'm president yet! Just type 'alternate universe' if you're curious..."
+        return result
+
+    def process_just_recommended(self, input):
+        if "y" in input:
+            self.response += "Thank you for trusting me to recommend movies to you. For all the women - especially the young women, who put your faith in me - I want you to know that nothing has made me prouder than to be your movie-recomming champion."
+            self.just_recommended = False
+            self.response += self.generalInstructions()
+        elif "n" in input:
+            self.response += """Well, when I'm knocked down, I get right back up and never listen to anyone who says I can't or shouldn't go on.
+        The worst thing that can happen in a democracy–as well as in an individual's life–is to become cynical about the future and lose hope: that is the end, and we cannot let that happen.
+        Although these recommendations might not have worked for you today, stay hopeful.
+        And remember...you can always go watch Kate McKinnon portraying me on Saturday Night Live :) if you're not into movies."""
+            self.just_recommended = False
+            self.response += self.generalInstructions()
+        else:
+            self.response += "Hey :( Answer my question! Did you like the recommendation - yes or no?"
+
+
     def process(self, input):
         """Takes the input string from the REPL and call delegated functions
         that 1) extract the relevant information and 2) transform the information into a response to the user"""
@@ -209,6 +247,10 @@ class Chatbot:
         if not self.asked_for_name:
             self.ask_for_name(input)
             return self.response
+        if self.just_recommended:
+            self.process_just_recommended(input)
+            return self.response
+
         #--------------------MOVIE SCHEME----------------------------------------
         movie_title, rest_of_sentence = self.extractTitles(input) #returns a tuple
         #NOT A VALID TITLE
@@ -225,11 +267,9 @@ class Chatbot:
             else:
                 self.respond_to_movie(movie_title, score)
             self.reprompt_for_movie()
-
+        #TIME TO RECOMMEND!
         if len(self.user_movies) == 5:
-            rec = self.recommend(self.user_movies)
-            self.response += self.give_recommendation_string()
-            self.response += "\nOkay, here are the movies I think you should watch: \n " + rec
+            self.output_recommendation()
         return self.response
 
     ########EXTRACT CODE################
@@ -244,7 +284,7 @@ class Chatbot:
     #return tuple with one index with title and ext with string of sentiments w no title
     #etractTitles should return moviename as it appears in getTitles
     def extractTitles(self, input):
-        self.debug == True
+        #self.debug == True
         prePrep = ['the', 'a', 'an']
         postPrep = [', the', ', a', ', an']
         lowerInput = input.lower()
@@ -393,12 +433,16 @@ class Chatbot:
     #parse out titles in parentheses
     #for user input, will also have to parse out year and recognize.
     def getTitles(self):
-        self.debug == True
+        #self.debug = True
         prep = ['The', 'A', 'An']
         #[("Legend of 1900, The (a.k.a. The Legend of the Pianist on the Ocean) (Leggenda del pianista sull'oceano) ", '(1998)')]
         pattern = '(.*?)(\([1-3][0-9][0-9][0-9]\))$'
+        moviePat = ''
+        currStr = ''
+        print("HERE__________")
         for title in self.titles:
           moviePat = re.findall(pattern, title[0])
+
           if len(moviePat) > 0:
             currStr = moviePat[0][0]
           if len(moviePat) >= 1:
@@ -642,7 +686,7 @@ class Chatbot:
       """Modifies the ratings matrix to make all of the ratings binary"""
       # Idea: +1 if the rating is > 2.5, -1 if it is <= 2.5, and 0 if it is not rated - DV
       #TODO: Can also try using each movie's average rating as its threshold
-      self.debug == True
+      #self.debug == True
       threshold = 2.5
       self.ratings[np.where(self.ratings >= threshold)] = -2
       self.ratings[np.where(self.ratings >= 0.5)] = -1
@@ -666,15 +710,6 @@ class Chatbot:
       norm_product = np.linalg.norm(u) * np.linalg.norm(v)
       return (dot_product / (norm_product + 1e-7))
 
-    """Given a list of (valid movie title w/o year, input with movie title removed) tuples,
-       returns a list of (valid movie titles w/o year, sentiment ratings)"""
-    """def get_sentiment_for_movies(self, t):
-        result = []
-        for movie, rest in t:
-            score = self.calcSentimentScore(rest)
-            result.append((movie, score))
-        return result"""
-
     """Returns the index in the original 9125 dimensions for a given title extracted from the user's input"""
     def getIndex(self, title):
         for i in range(len(self.titles)):
@@ -682,7 +717,7 @@ class Chatbot:
                 return i
 
     def recommend(self, t):
-      self.debug == True
+      #self.debug == True
       """Generates a list of movies based on the input vector u using
       collaborative filtering"""
       # Implement a recommendation function that takes a user vector u
